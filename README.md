@@ -1,0 +1,1 @@
+# aladin-newboosk-notifier
