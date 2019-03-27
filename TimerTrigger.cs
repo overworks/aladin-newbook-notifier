@@ -63,15 +63,18 @@ namespace Mh.Functions.AladinNewBookNotifier
             )
         {
             ProductList productList = await FetchProductListAsync(httpClient, eBook, categoryId, log);
-
-            foreach (Product product in productList.item)
+            if (productList != null)
             {
-                TableOperation retrieveOperation = TableOperation.Retrieve<BookEntity>(key, product.itemId.ToString());
-                TableResult retrievedResult = await table.ExecuteAsync(retrieveOperation);
-                if (retrievedResult.Result == null)
+                foreach (Product product in productList.item)
                 {
-                    CloudQueueMessage message = new CloudQueueMessage(JsonConvert.SerializeObject(product));
-                    await queue.AddMessageAsync(message);
+                    TableOperation retrieveOperation = TableOperation.Retrieve<BookEntity>(key, product.itemId.ToString());
+                    TableResult retrievedResult = await table.ExecuteAsync(retrieveOperation);
+                    if (retrievedResult.Result == null)
+                    {
+                        log.LogInformation("enqueue " + product.title);
+                        CloudQueueMessage message = new CloudQueueMessage(JsonConvert.SerializeObject(product));
+                        await queue.AddMessageAsync(message);
+                    }
                 }
             }
         }
