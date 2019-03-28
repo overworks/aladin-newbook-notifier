@@ -17,9 +17,9 @@ namespace Mh.Functions.AladinNewBookNotifier
 {
     public static class QueueTrigger
     {
-        static HttpClient httpClient = new HttpClient();
+        private static HttpClient httpClient = new HttpClient();
 
-        private static async Task<ItemLookUpResult> LookUpItem(string itemId, ILogger log)
+        private static async Task<ItemLookUpResult> LookUpItem(string itemId)
         {
             string ttbKey = Environment.GetEnvironmentVariable("TTB_KEY");
             string partnerId = Environment.GetEnvironmentVariable("PARTNER_ID");
@@ -41,11 +41,7 @@ namespace Mh.Functions.AladinNewBookNotifier
             }
 
             Uri uri = new Uri(new Uri(Const.Domain), sb.ToString());
-
-            log.LogInformation("target uri: " + uri);
-
             string res = await httpClient.GetStringAsync(uri);
-            log.LogInformation(res);
             return JsonConvert.DeserializeObject<ItemLookUpResult>(res);
         }
 
@@ -90,7 +86,9 @@ namespace Mh.Functions.AladinNewBookNotifier
 
             Tokens tokens = Tokens.Create(consumerKey, consumerSecret, accessToken, accessTokenSecret);
 
-            Stream stream = await httpClient.GetStreamAsync(Utils.UnescapeUrl(item.cover));
+            // 커버 주소를 고해상도로 강제변경
+            string coverUrl = Utils.UnescapeUrl(item.cover).Replace(@"/cover/", @"/cover500/");
+            Stream stream = await httpClient.GetStreamAsync(coverUrl);
             MediaUploadResult mediaUploadResult = await tokens.Media.UploadAsync(stream);
 
             long[] mediaIds = { mediaUploadResult.MediaId };
@@ -108,7 +106,7 @@ namespace Mh.Functions.AladinNewBookNotifier
             try
             {
                 BookEntity entity = JsonConvert.DeserializeObject<BookEntity>(message.AsString);
-                ItemLookUpResult lookUpResult = await LookUpItem(entity.RowKey, log);
+                ItemLookUpResult lookUpResult = await LookUpItem(entity.RowKey);
 
                 foreach (ItemLookUpResult.Item item in lookUpResult.item)
                 {
