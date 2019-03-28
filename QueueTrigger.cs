@@ -117,7 +117,7 @@ namespace Mh.Functions.AladinNewBookNotifier
                         log.LogInformation("trigger was cancelled.");
                         break;
                     }
-                    Task tweetTask = TweetItem(entity.RowKey, item);
+                    Task tweetTask = TweetItem(entity.PartitionKey, item);
 
                     TableOperation operation = TableOperation.InsertOrReplace(entity);
                     Task tableTask = table.ExecuteAsync(operation);
