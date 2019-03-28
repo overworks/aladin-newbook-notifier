@@ -19,6 +19,8 @@ namespace Mh.Functions.AladinNewBookNotifier
     {
         private static HttpClient httpClient = new HttpClient();
 
+        /// <summary>알라딘 상품 조회 API를 사용하여 상품 정보를 가져옴</summary>
+        /// <param name="itemId">상품 ID</param>
         private static async Task<ItemLookUpResult> LookUpItem(string itemId)
         {
             string ttbKey = Environment.GetEnvironmentVariable("TTB_KEY");
@@ -45,6 +47,7 @@ namespace Mh.Functions.AladinNewBookNotifier
             return JsonConvert.DeserializeObject<ItemLookUpResult>(res);
         }
 
+        /// <summary>트윗 본문 작성</summary>
         private static string MakeTweetStatus(ItemLookUpResult.Item item)
         {
             // 트위터는 140자까지 적을 수 있으나, 영문-숫자-특문은 2자당 한칸만을 차지한다.
@@ -77,12 +80,13 @@ namespace Mh.Functions.AladinNewBookNotifier
             return status + Utils.UnescapeUrl(item.link);
         }
 
-        private static async Task TweetItem(string key, ItemLookUpResult.Item item)
+        /// <summary>상품정보를 트윗</summary>
+        private static async Task TweetItem(CredentialsEntity credentials, ItemLookUpResult.Item item)
         {
-            string consumerKey = Environment.GetEnvironmentVariable(key + "_CONSUMER_KEY");
-            string consumerSecret = Environment.GetEnvironmentVariable(key + "_CONSUMER_SECRET");
-            string accessToken = Environment.GetEnvironmentVariable(key + "_ACCESS_TOKEN");
-            string accessTokenSecret = Environment.GetEnvironmentVariable(key + "_ACCESS_TOKEN_SECRET");
+            string consumerKey = Environment.GetEnvironmentVariable("TWITTER_CONSUMER_KEY");
+            string consumerSecret = Environment.GetEnvironmentVariable("TWITTER_CONSUMER_SECRET");
+            string accessToken = credentials.AccessToken;
+            string accessTokenSecret = credentials.AccessTokenSecret;
 
             Tokens tokens = Tokens.Create(consumerKey, consumerSecret, accessToken, accessTokenSecret);
 
@@ -98,16 +102,26 @@ namespace Mh.Functions.AladinNewBookNotifier
 
         [FunctionName("QueueTrigger")]
         public static async Task Run(
-            [QueueTrigger("aladin-newbooks", Connection = "AzureWebJobsStorage")] CloudQueueMessage message,
-            [Table("BookEntity")] CloudTable table,
+            [QueueTrigger("aladin-newbooks")] CloudQueueMessage message,
+            [Table("BookEntity")] CloudTable bookTable,
+            [Table("Credentials", "Twitter")] CloudTable credentialsTable,
             ILogger log,
             CancellationToken token)
         {
             try
             {
                 BookEntity entity = JsonConvert.DeserializeObject<BookEntity>(message.AsString);
-                ItemLookUpResult lookUpResult = await LookUpItem(entity.RowKey);
 
+                // 트위터의 액세스 토큰 정보를 가져옴
+                TableOperation retrieveOperation = TableOperation.Retrieve<CredentialsEntity>("Twitter", entity.PartitionKey);
+                TableResult retrievedResult = await credentialsTable.ExecuteAsync(retrieveOperation);
+                CredentialsEntity credentialsEntity = retrievedResult.Result as CredentialsEntity;
+                if (credentialsEntity == null)
+                {
+                    throw new Exception($"credentials {entity.PartitionKey} did not exist.");
+                }
+
+                ItemLookUpResult lookUpResult = await LookUpItem(entity.RowKey);
                 foreach (ItemLookUpResult.Item item in lookUpResult.item)
                 {
                     if (token.IsCancellationRequested)
@@ -115,13 +129,13 @@ namespace Mh.Functions.AladinNewBookNotifier
                         log.LogInformation("trigger was cancelled.");
                         break;
                     }
-                    Task tweetTask = TweetItem(entity.PartitionKey, item);
+                    Task tweetTask = TweetItem(credentialsEntity, item);
 
-                    TableOperation operation = TableOperation.InsertOrReplace(entity);
-                    Task tableTask = table.ExecuteAsync(operation);
+                    TableOperation insertOperation = TableOperation.InsertOrReplace(entity);
+                    Task insertTask = bookTable.ExecuteAsync(insertOperation);
 
                     await tweetTask;
-                    await tableTask;
+                    await insertTask;
                 }
             }
             catch (Exception e)

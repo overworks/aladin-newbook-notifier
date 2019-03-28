@@ -6,4 +6,10 @@ namespace Mh.Functions.AladinNewBookNotifier
     {
         public string Name { get; set; }
     }
+
+    public class CredentialsEntity : TableEntity
+    {
+        public string AccessToken { get; set; }
+        public string AccessTokenSecret { get; set; }
+    }
 }
