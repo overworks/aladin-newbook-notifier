@@ -15,7 +15,7 @@ namespace Mh.Functions.AladinNewBookNotifier
 {
     public static class TimerTrigger
     {
-        static async Task<ProductList> FetchProductListAsync(HttpClient httpClient, bool eBook, string categoryId, ILogger log)
+        static async Task<ItemListResult> FetchItemListAsync(HttpClient httpClient, bool eBook, string categoryId, ILogger log)
         {
             string ttbKey = Environment.GetEnvironmentVariable("TTB_KEY");
             string partnerId = Environment.GetEnvironmentVariable("PARTNER_ID");
@@ -26,8 +26,8 @@ namespace Mh.Functions.AladinNewBookNotifier
             queryDict.Add("cover", "big");
             queryDict.Add("output", "js");
             queryDict.Add("maxresults", "30");
-            queryDict.Add("searchtarget", eBook ? "ebook" : "book");
-            queryDict.Add("optresult", "ebooklist,fileformatlist");
+            //queryDict.Add("searchtarget", eBook ? "ebook" : "book");
+            //queryDict.Add("optresult", "ebooklist,fileformatlist");
             queryDict.Add("categoryid", categoryId);
             queryDict.Add("ttbkey", ttbKey);
             queryDict.Add("partner", partnerId);
@@ -44,7 +44,7 @@ namespace Mh.Functions.AladinNewBookNotifier
             log.LogInformation("target uri: " + uri);
 
             string res = await httpClient.GetStringAsync(uri);
-            return JsonConvert.DeserializeObject<ProductList>(res);
+            return JsonConvert.DeserializeObject<ItemListResult>(res);
         }
 
         static async Task CheckNewProduct(
@@ -58,10 +58,10 @@ namespace Mh.Functions.AladinNewBookNotifier
             CancellationToken token
             )
         {
-            ProductList productList = await FetchProductListAsync(httpClient, eBook, categoryId, log);
+            ItemListResult productList = await FetchItemListAsync(httpClient, eBook, categoryId, log);
             if (productList != null)
             {
-                foreach (Product product in productList.item)
+                foreach (ItemListResult.Item product in productList.item)
                 {
                     if (token.IsCancellationRequested)
                     {
