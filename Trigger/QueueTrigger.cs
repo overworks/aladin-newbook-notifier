@@ -112,6 +112,33 @@ namespace Mh.Functions.AladinNewBookNotifier
             }
         }
 
+        private static ISendMessage MakeBookMessage(ItemLookUpResult.Item item)
+        {
+            // 이미지 컴포넌트
+            ImageComponent hero = new ImageComponent();
+            hero.Url = Utils.UnescapeUrl(item.cover).Replace(@"/cover/", @"/cover500/");
+
+            // 바디
+            TextComponent author = new TextComponent(item.author);
+            BoxComponent body = new BoxComponent();
+            body.Contents.Add(author);
+            body.Contents.Add(new SeparatorComponent());
+
+            // 푸터
+            ButtonComponent linkButton = new ButtonComponent();
+            linkButton.Action = new UriTemplateAction("Link", Utils.UnescapeUrl(item.link));
+            
+            BoxComponent footer = new BoxComponent();
+            footer.Contents.Add(linkButton);
+            
+            
+            BubbleContainer container = new BubbleContainer();
+            container.Hero = hero;
+            container.Footer = footer;
+
+            return FlexMessage.CreateBubbleMessage(item.title).SetBubbleContainer(container);
+        }
+
         private static async Task SendLineMessage(CloudTable accountTable, List<ItemLookUpResult.Item> itemList, ILogger log)
         {
             if (lineMessagingClient == null)
@@ -127,16 +154,23 @@ namespace Mh.Functions.AladinNewBookNotifier
             // 한번에 보낼 수 있는 건 5개까지다.
             int count = 0;
             List<ISendMessage> messageList = new List<ISendMessage>();
-            do
+            while (count < itemList.Count)
             {
                 messageList.Clear();
                 for (int i = 0; i < 5; ++i)
                 {
-                    
+                    if (count >= itemList.Count)
+                    {
+                        break;
+                    }
+
+                    ISendMessage message = MakeBookMessage(itemList[count]);
+                    messageList.Add(message);
+
+                    count++;
                 }
                 await lineBot.MulticastMessages(messageList);
             }
-            while (count < itemList.Count);
         }
 
         [FunctionName("QueueTrigger")]
