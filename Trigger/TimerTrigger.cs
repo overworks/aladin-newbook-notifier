@@ -61,7 +61,8 @@ namespace Mh.Functions.AladinNewBookNotifier
             ItemListResult productList = await FetchItemListAsync(httpClient, eBook, categoryId, log);
             if (productList != null)
             {
-                foreach (ItemListResult.Item product in productList.item)
+                List<TableEntity> entityList = new List<TableEntity>();
+                foreach (ItemListResult.Item item in productList.item)
                 {
                     if (token.IsCancellationRequested)
                     {
@@ -71,25 +72,25 @@ namespace Mh.Functions.AladinNewBookNotifier
 
                     try
                     {
-                        TableOperation retrieveOperation = TableOperation.Retrieve<BookEntity>(key, product.itemId.ToString());
+                        TableOperation retrieveOperation = TableOperation.Retrieve<BookEntity>(key, item.itemId.ToString());
                         TableResult retrievedResult = await table.ExecuteAsync(retrieveOperation);
                         if (retrievedResult.Result == null)
                         {
-                            log.LogInformation("enqueue " + product.title);
-                            
-                            BookEntity entity = new BookEntity();
-                            entity.PartitionKey = key;
-                            entity.RowKey = product.itemId.ToString();
-                            entity.Name = product.title;
+                            log.LogInformation("enqueue " + item.title);
 
-                            CloudQueueMessage message = new CloudQueueMessage(JsonConvert.SerializeObject(entity));
-                            await queue.AddMessageAsync(message);
+                            entityList.Add(new TableEntity(key, item.itemId.ToString()));
                         }
                     }
                     catch (Exception e)
                     {
                         log.LogError(e.Message);
                     }
+                }
+
+                if (!token.IsCancellationRequested && entityList.Count > 0)
+                {
+                    CloudQueueMessage message = new CloudQueueMessage(JsonConvert.SerializeObject(entityList));
+                    await queue.AddMessageAsync(message);
                 }
             }
         }

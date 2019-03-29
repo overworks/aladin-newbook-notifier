@@ -12,4 +12,10 @@ namespace Mh.Functions.AladinNewBookNotifier
         public string AccessToken { get; set; }
         public string AccessTokenSecret { get; set; }
     }
+
+    public class LineAccountEntity : TableEntity
+    {
+        public string Type { get { return PartitionKey; } }
+        public string Id { get { return RowKey; } }
+    }
 }

@@ -1,13 +1,12 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
+using Microsoft.WindowsAzure.Storage.Table;
 using Line.Messaging;
 using Line.Messaging.Webhooks;
 
@@ -28,6 +27,7 @@ namespace Mh.Functions.AladinNewBookNotifier
         [FunctionName("LineComicsWebHookTrigger")]
         public static async Task<HttpResponseMessage> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequestMessage req,
+            [Table("LineAccount")] CloudTable accountTable,
             ILogger log)
         {
             log.LogInformation("C# HTTP trigger function processed a request.");
@@ -45,7 +45,7 @@ namespace Mh.Functions.AladinNewBookNotifier
 
             try
             {
-                LineBotApp bot = new LineBotApp(messagingClient);
+                LineBotApp bot = new LineBotApp(messagingClient, accountTable, log);
                 await bot.RunAsync(events);
             }
             catch (Exception e)

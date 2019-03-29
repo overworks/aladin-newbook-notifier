@@ -13,12 +13,14 @@ using Microsoft.Extensions.Logging;
 using Microsoft.WindowsAzure.Storage.Queue;
 using Microsoft.WindowsAzure.Storage.Table;
 using Newtonsoft.Json;
+using Line.Messaging;
 
 namespace Mh.Functions.AladinNewBookNotifier
 {
     public static class QueueTrigger
     {
         private static HttpClient httpClient = new HttpClient();
+        private static LineMessagingClient lineMessagingClient;
         
         /// <summary>알라딘 상품 조회 API를 사용하여 상품 정보를 가져옴</summary>
         /// <param name="itemId">상품 ID</param>
@@ -101,43 +103,102 @@ namespace Mh.Functions.AladinNewBookNotifier
             StatusResponse updateResponse = await tokens.Statuses.UpdateAsync(status, media_ids: mediaIds);
         }
 
+        /// <summary>상품정보 트윗 일괄처리</summary>
+        private static async Task TweetItems(CredentialsEntity credentials, List<ItemLookUpResult.Item> itemList)
+        {
+            foreach (ItemLookUpResult.Item item in itemList)
+            {
+                await TweetItem(credentials, item);
+            }
+        }
+
+        private static async Task SendLineMessage(CloudTable accountTable, List<ItemLookUpResult.Item> itemList, ILogger log)
+        {
+            if (lineMessagingClient == null)
+            {
+                string accessToken = Environment.GetEnvironmentVariable("LINE_COMICS_ACCESS_TOKEN");
+                lineMessagingClient = new LineMessagingClient(accessToken);
+                ServicePoint sp = ServicePointManager.FindServicePoint(new Uri("https://api.line.me"));
+                sp.ConnectionLeaseTimeout = 60 * 1000;
+            }
+
+            LineBotApp lineBot = new LineBotApp(lineMessagingClient, accountTable, log);
+            
+            // 한번에 보낼 수 있는 건 5개까지다.
+            int count = 0;
+            List<ISendMessage> messageList = new List<ISendMessage>();
+            do
+            {
+                messageList.Clear();
+                for (int i = 0; i < 5; ++i)
+                {
+                    
+                }
+                await lineBot.MulticastMessages(messageList);
+            }
+            while (count < itemList.Count);
+        }
+
         [FunctionName("QueueTrigger")]
         public static async Task Run(
             [QueueTrigger("aladin-newbooks")] CloudQueueMessage message,
             [Table("BookEntity")] CloudTable bookTable,
+            [Table("LineAccount")] CloudTable lineAccountTable,
             [Table("Credentials", "Twitter")] CloudTable credentialsTable,
             ILogger log,
             CancellationToken token)
         {
             try
             {
-                BookEntity entity = JsonConvert.DeserializeObject<BookEntity>(message.AsString);
+                List<TableEntity> entityList = JsonConvert.DeserializeObject<List<TableEntity>>(message.AsString);
 
-                // 트위터의 액세스 토큰 정보를 가져옴
-                TableOperation retrieveOperation = TableOperation.Retrieve<CredentialsEntity>("Twitter", entity.PartitionKey);
-                TableResult retrievedResult = await credentialsTable.ExecuteAsync(retrieveOperation);
-                CredentialsEntity credentialsEntity = retrievedResult.Result as CredentialsEntity;
-                if (credentialsEntity == null)
-                {
-                    throw new Exception($"credentials {entity.PartitionKey} did not exist.");
-                }
+                CredentialsEntity credentialsEntity = null;
+                List<ItemLookUpResult.Item> itemList = new List<ItemLookUpResult.Item>();
+                TableBatchOperation batchOperation = new TableBatchOperation();
 
-                ItemLookUpResult lookUpResult = await LookUpItem(entity.RowKey);
-                foreach (ItemLookUpResult.Item item in lookUpResult.item)
+                foreach (TableEntity entity in entityList)
                 {
-                    if (token.IsCancellationRequested)
+                    if (credentialsEntity == null)
                     {
-                        log.LogInformation("trigger was cancelled.");
-                        break;
+                        // 스토리지에 저장되어 있는 트위터의 액세스 토큰을 가져옴
+                        TableOperation retrieveOperation = TableOperation.Retrieve<CredentialsEntity>("Twitter", entity.PartitionKey);
+                        TableResult retrievedResult = await credentialsTable.ExecuteAsync(retrieveOperation);
+                        credentialsEntity = retrievedResult.Result as CredentialsEntity;
+                        if (credentialsEntity == null)
+                        {
+                            throw new Exception($"credentials {entity.PartitionKey} did not exist.");
+                        }
                     }
-                    Task tweetTask = TweetItem(credentialsEntity, item);
 
-                    TableOperation insertOperation = TableOperation.InsertOrReplace(entity);
-                    Task insertTask = bookTable.ExecuteAsync(insertOperation);
+                    ItemLookUpResult lookUpResult = await LookUpItem(entity.RowKey);
+                    foreach (ItemLookUpResult.Item item in lookUpResult.item)
+                    {
+                        if (token.IsCancellationRequested)
+                        {
+                            throw new Exception("trigger was cancelled.");
+                        }
 
-                    await tweetTask;
-                    await insertTask;
+                        BookEntity bookEntity = new BookEntity();
+                        bookEntity.PartitionKey = entity.PartitionKey;
+                        bookEntity.RowKey = entity.RowKey;
+                        bookEntity.Name = item.title;
+                        
+                        batchOperation.InsertOrReplace(bookEntity);
+                    }
                 }
+
+                Task tweetTask = TweetItems(credentialsEntity, itemList);
+
+                // 지금은 테스트중이라 만화쪽만 처리한다.
+                //Task lineTask = credentialsEntity.RowKey == "COMICS" ? SendLineMessage(lineAccountTable, itemList, log) : Task.CompletedTask;
+
+                // 배치처리는 파티션 키가 동일해야하고, 100개까지 가능하다는데...
+                // 일단 파티션 키는 전부 동일하게 넘어올테고, 100개 넘을일은 없겠...지?
+                var tableTask = bookTable.ExecuteBatchAsync(batchOperation);
+
+                await tweetTask;
+                //await lineTask;
+                await tableTask;
             }
             catch (Exception e)
             {
