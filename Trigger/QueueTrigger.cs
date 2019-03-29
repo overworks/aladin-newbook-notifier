@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
@@ -18,7 +19,7 @@ namespace Mh.Functions.AladinNewBookNotifier
     public static class QueueTrigger
     {
         private static HttpClient httpClient = new HttpClient();
-
+        
         /// <summary>알라딘 상품 조회 API를 사용하여 상품 정보를 가져옴</summary>
         /// <param name="itemId">상품 ID</param>
         private static async Task<ItemLookUpResult> LookUpItem(string itemId)

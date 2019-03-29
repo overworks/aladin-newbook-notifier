@@ -5,6 +5,29 @@ namespace Mh.Functions.AladinNewBookNotifier
 {
     public class ItemLookUpResult
     {
+        public class EBook
+        {
+            public int itemId { get; set; }
+            public string ISBN { get; set; }
+            public int priceSales { get; set; }
+            public string link { get; set; }
+        }
+
+        public class FileFormat
+        {
+            public string fileType { get; set; }
+            public int fileSize { get; set; }
+        }
+
+        public class SubInfo
+        {
+            public IList<EBook> ebookList { get; set; }
+            public IList<FileFormat> fileFormatList { get; set; }
+            public string subTitle { get; set; }
+            public string originalTitle { get; set; }
+            public int itemPage { get; set; }
+        }
+
         public class Item
         {
             public string title { get; set; }
@@ -28,6 +51,7 @@ namespace Mh.Functions.AladinNewBookNotifier
             public int salesPoint { get; set; }
             public bool adult { get; set; }
             public int customerReviewRank { get; set; }
+            public SubInfo subInfo { get; set; }
         }
         
         public string version { get; set; }
