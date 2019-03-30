@@ -43,8 +43,10 @@ namespace Mh.Functions.AladinNewBookNotifier
 
             log.LogInformation("target uri: " + uri);
 
-            string res = await httpClient.GetStringAsync(uri);
-            return JsonConvert.DeserializeObject<ItemListResult>(res);
+            string response = await httpClient.GetStringAsync(uri);
+            ItemListResult result = JsonConvert.DeserializeObject<ItemListResult>(response);
+
+            return result;
         }
 
         static async Task CheckNewProduct(
@@ -89,7 +91,8 @@ namespace Mh.Functions.AladinNewBookNotifier
 
                 if (!token.IsCancellationRequested && entityList.Count > 0)
                 {
-                    CloudQueueMessage message = new CloudQueueMessage(JsonConvert.SerializeObject(entityList));
+                    string json = JsonConvert.SerializeObject(entityList);
+                    CloudQueueMessage message = new CloudQueueMessage(json);
                     await queue.AddMessageAsync(message);
                 }
             }

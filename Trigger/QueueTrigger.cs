@@ -46,8 +46,18 @@ namespace Mh.Functions.AladinNewBookNotifier
             }
 
             Uri uri = new Uri(new Uri(Const.Domain), sb.ToString());
-            string res = await httpClient.GetStringAsync(uri);
-            return JsonConvert.DeserializeObject<ItemLookUpResult>(res);
+            string response = await httpClient.GetStringAsync(uri);
+            ItemLookUpResult result = JsonConvert.DeserializeObject<ItemLookUpResult>(response);
+
+            // url 이스케이프나 커버 주소 변경등은 미리 여기서 처리해둠.
+            result.link = Utils.UnescapeUrl(result.link);
+            foreach (ItemLookUpResult.Item item in result.item)
+            {
+                item.link = Utils.UnescapeUrl(item.link);
+                item.cover = Utils.UnescapeUrl(item.cover).Replace(@"/cover/", @"/cover500/");
+            }
+
+            return result;
         }
 
         /// <summary>트윗 본문 작성</summary>
@@ -80,7 +90,7 @@ namespace Mh.Functions.AladinNewBookNotifier
                     }
                 }
             }
-            return status + Utils.UnescapeUrl(item.link);
+            return status + item.link;
         }
 
         /// <summary>상품정보를 트윗</summary>
@@ -94,8 +104,7 @@ namespace Mh.Functions.AladinNewBookNotifier
             Tokens tokens = Tokens.Create(consumerKey, consumerSecret, accessToken, accessTokenSecret);
 
             // 커버 주소를 고해상도로 강제변경
-            string coverUrl = Utils.UnescapeUrl(item.cover).Replace(@"/cover/", @"/cover500/");
-            Stream stream = await httpClient.GetStreamAsync(coverUrl);
+            Stream stream = await httpClient.GetStreamAsync(item.cover);
             MediaUploadResult mediaUploadResult = await tokens.Media.UploadAsync(stream);
 
             long[] mediaIds = { mediaUploadResult.MediaId };
@@ -116,7 +125,8 @@ namespace Mh.Functions.AladinNewBookNotifier
         {
             // 이미지 컴포넌트
             ImageComponent hero = new ImageComponent();
-            hero.Url = Utils.UnescapeUrl(item.cover).Replace(@"/cover/", @"/cover500/");
+            hero.Url = item.cover;
+            hero.Action = new UriTemplateAction("Link", item.link);
 
             // 바디
             TextComponent author = new TextComponent(item.author);
@@ -126,7 +136,7 @@ namespace Mh.Functions.AladinNewBookNotifier
 
             // 푸터
             ButtonComponent linkButton = new ButtonComponent();
-            linkButton.Action = new UriTemplateAction("Link", Utils.UnescapeUrl(item.link));
+            linkButton.Action = new UriTemplateAction("Link", item.link);
             
             BoxComponent footer = new BoxComponent();
             footer.Contents.Add(linkButton);
@@ -218,21 +228,25 @@ namespace Mh.Functions.AladinNewBookNotifier
                         bookEntity.Name = item.title;
                         
                         batchOperation.InsertOrReplace(bookEntity);
+                        itemList.Add(item);
                     }
                 }
 
-                Task tweetTask = TweetItems(credentialsEntity, itemList);
+                if (itemList.Count > 0)
+                {
+                    Task tweetTask = TweetItems(credentialsEntity, itemList);
 
-                // 지금은 테스트중이라 만화쪽만 처리한다.
-                //Task lineTask = credentialsEntity.RowKey == "COMICS" ? SendLineMessage(lineAccountTable, itemList, log) : Task.CompletedTask;
+                    // 지금은 테스트중이라 만화쪽만 처리한다.
+                    //Task lineTask = credentialsEntity.RowKey == "COMICS" ? SendLineMessage(lineAccountTable, itemList, log) : Task.CompletedTask;
 
-                // 배치처리는 파티션 키가 동일해야하고, 100개까지 가능하다는데...
-                // 일단 파티션 키는 전부 동일하게 넘어올테고, 100개 넘을일은 없겠...지?
-                var tableTask = bookTable.ExecuteBatchAsync(batchOperation);
+                    // 배치처리는 파티션 키가 동일해야하고, 100개까지 가능하다는데...
+                    // 일단 파티션 키는 전부 동일하게 넘어올테고, 100개 넘을일은 없겠...지?
+                    var tableTask = bookTable.ExecuteBatchAsync(batchOperation);
 
-                await tweetTask;
-                //await lineTask;
-                await tableTask;
+                    await tweetTask;
+                    //await lineTask;
+                    await tableTask;
+                }
             }
             catch (Exception e)
             {
