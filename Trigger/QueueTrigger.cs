@@ -26,8 +26,8 @@ namespace Mh.Functions.AladinNewBookNotifier
         /// <param name="itemId">상품 ID</param>
         private static async Task<ItemLookUpResult> LookUpItem(string itemId)
         {
-            string ttbKey = Environment.GetEnvironmentVariable("TTB_KEY");
-            string partnerId = Environment.GetEnvironmentVariable("PARTNER_ID");
+            string ttbKey = Environment.GetEnvironmentVariable("ALADIN_TTB_KEY");
+            string partnerId = Environment.GetEnvironmentVariable("ALADIN_PARTNER_ID");
 
             Dictionary<string, string> queryDict = new Dictionary<string, string>();
             queryDict.Add("ttbkey", ttbKey);
@@ -103,7 +103,6 @@ namespace Mh.Functions.AladinNewBookNotifier
 
             Tokens tokens = Tokens.Create(consumerKey, consumerSecret, accessToken, accessTokenSecret);
 
-            // 커버 주소를 고해상도로 강제변경
             Stream stream = await httpClient.GetStreamAsync(item.cover);
             MediaUploadResult mediaUploadResult = await tokens.Media.UploadAsync(stream);
 
@@ -124,15 +123,29 @@ namespace Mh.Functions.AladinNewBookNotifier
         private static ISendMessage MakeBookMessage(ItemLookUpResult.Item item)
         {
             // 이미지 컴포넌트
-            ImageComponent hero = new ImageComponent();
-            hero.Url = item.cover;
+            ImageComponent hero = new ImageComponent(item.cover);
+            hero.AspectMode = AspectMode.Cover;
             hero.Action = new UriTemplateAction("Link", item.link);
 
             // 바디
+            TextComponent title = new TextComponent(item.title);
+            title.Size = ComponentSize.Xl;
+            title.Weight = Weight.Bold;
             TextComponent author = new TextComponent(item.author);
-            BoxComponent body = new BoxComponent();
+            author.Size = ComponentSize.Sm;
+            TextComponent publisher = new TextComponent(item.publisher);
+            publisher.Size = ComponentSize.Sm;
+            TextComponent pubDate = new TextComponent(item.pubDate);
+            publisher.Size = ComponentSize.Sm;
+            TextComponent price = new TextComponent(item.priceStandard + "원");
+            price.Size = ComponentSize.Sm;
+
+            BoxComponent body = new BoxComponent(BoxLayout.Vertical);
+            body.Contents.Add(title);
             body.Contents.Add(author);
-            body.Contents.Add(new SeparatorComponent());
+            body.Contents.Add(publisher);
+            body.Contents.Add(pubDate);
+            body.Contents.Add(price);
 
             // 푸터
             ButtonComponent linkButton = new ButtonComponent();
@@ -140,7 +153,6 @@ namespace Mh.Functions.AladinNewBookNotifier
             
             BoxComponent footer = new BoxComponent();
             footer.Contents.Add(linkButton);
-            
             
             BubbleContainer container = new BubbleContainer();
             container.Hero = hero;
@@ -194,27 +206,23 @@ namespace Mh.Functions.AladinNewBookNotifier
         {
             try
             {
-                List<TableEntity> entityList = JsonConvert.DeserializeObject<List<TableEntity>>(message.AsString);
+                QueueItem queueItem = JsonConvert.DeserializeObject<QueueItem>(message.AsString);
 
-                CredentialsEntity credentialsEntity = null;
+                // 스토리지에 저장되어 있는 트위터의 액세스 토큰을 가져옴
+                TableOperation retrieveOperation = TableOperation.Retrieve<CredentialsEntity>("Twitter", queueItem.Category);
+                TableResult retrievedResult = await credentialsTable.ExecuteAsync(retrieveOperation);
+                CredentialsEntity credentialsEntity = retrievedResult.Result as CredentialsEntity;
+                if (credentialsEntity == null)
+                {
+                    throw new Exception($"credentials {queueItem.Category} did not exist.");
+                }
+
                 List<ItemLookUpResult.Item> itemList = new List<ItemLookUpResult.Item>();
                 TableBatchOperation batchOperation = new TableBatchOperation();
 
-                foreach (TableEntity entity in entityList)
+                foreach (string itemId in queueItem.ItemList)
                 {
-                    if (credentialsEntity == null)
-                    {
-                        // 스토리지에 저장되어 있는 트위터의 액세스 토큰을 가져옴
-                        TableOperation retrieveOperation = TableOperation.Retrieve<CredentialsEntity>("Twitter", entity.PartitionKey);
-                        TableResult retrievedResult = await credentialsTable.ExecuteAsync(retrieveOperation);
-                        credentialsEntity = retrievedResult.Result as CredentialsEntity;
-                        if (credentialsEntity == null)
-                        {
-                            throw new Exception($"credentials {entity.PartitionKey} did not exist.");
-                        }
-                    }
-
-                    ItemLookUpResult lookUpResult = await LookUpItem(entity.RowKey);
+                    ItemLookUpResult lookUpResult = await LookUpItem(itemId);
                     foreach (ItemLookUpResult.Item item in lookUpResult.item)
                     {
                         if (token.IsCancellationRequested)
@@ -223,8 +231,8 @@ namespace Mh.Functions.AladinNewBookNotifier
                         }
 
                         BookEntity bookEntity = new BookEntity();
-                        bookEntity.PartitionKey = entity.PartitionKey;
-                        bookEntity.RowKey = entity.RowKey;
+                        bookEntity.PartitionKey = queueItem.Category;
+                        bookEntity.RowKey = itemId;
                         bookEntity.Name = item.title;
                         
                         batchOperation.InsertOrReplace(bookEntity);
@@ -237,14 +245,14 @@ namespace Mh.Functions.AladinNewBookNotifier
                     Task tweetTask = TweetItems(credentialsEntity, itemList);
 
                     // 지금은 테스트중이라 만화쪽만 처리한다.
-                    //Task lineTask = credentialsEntity.RowKey == "COMICS" ? SendLineMessage(lineAccountTable, itemList, log) : Task.CompletedTask;
+                    Task lineTask = queueItem.Category == "COMICS" ? SendLineMessage(lineAccountTable, itemList, log) : Task.CompletedTask;
 
                     // 배치처리는 파티션 키가 동일해야하고, 100개까지 가능하다는데...
                     // 일단 파티션 키는 전부 동일하게 넘어올테고, 100개 넘을일은 없겠...지?
                     var tableTask = bookTable.ExecuteBatchAsync(batchOperation);
 
                     await tweetTask;
-                    //await lineTask;
+                    await lineTask;
                     await tableTask;
                 }
             }

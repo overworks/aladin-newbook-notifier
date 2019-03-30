@@ -17,8 +17,8 @@ namespace Mh.Functions.AladinNewBookNotifier
     {
         static async Task<ItemListResult> FetchItemListAsync(HttpClient httpClient, bool eBook, string categoryId, ILogger log)
         {
-            string ttbKey = Environment.GetEnvironmentVariable("TTB_KEY");
-            string partnerId = Environment.GetEnvironmentVariable("PARTNER_ID");
+            string ttbKey = Environment.GetEnvironmentVariable("ALADIN_TTB_KEY");
+            string partnerId = Environment.GetEnvironmentVariable("ALADIN_PARTNER_ID");
 
             Dictionary<string, string> queryDict = new Dictionary<string, string>();
             queryDict.Add("querytype", "itemnewall");
@@ -63,7 +63,7 @@ namespace Mh.Functions.AladinNewBookNotifier
             ItemListResult productList = await FetchItemListAsync(httpClient, eBook, categoryId, log);
             if (productList != null)
             {
-                List<TableEntity> entityList = new List<TableEntity>();
+                QueueItem queueItem = new QueueItem(key);
                 foreach (ItemListResult.Item item in productList.item)
                 {
                     if (token.IsCancellationRequested)
@@ -80,7 +80,7 @@ namespace Mh.Functions.AladinNewBookNotifier
                         {
                             log.LogInformation("enqueue " + item.title);
 
-                            entityList.Add(new TableEntity(key, item.itemId.ToString()));
+                            queueItem.ItemList.Add(item.itemId.ToString());
                         }
                     }
                     catch (Exception e)
@@ -89,9 +89,9 @@ namespace Mh.Functions.AladinNewBookNotifier
                     }
                 }
 
-                if (!token.IsCancellationRequested && entityList.Count > 0)
+                if (!token.IsCancellationRequested && queueItem.ItemList.Count > 0)
                 {
-                    string json = JsonConvert.SerializeObject(entityList);
+                    string json = JsonConvert.SerializeObject(queueItem);
                     CloudQueueMessage message = new CloudQueueMessage(json);
                     await queue.AddMessageAsync(message);
                 }
