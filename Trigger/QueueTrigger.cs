@@ -124,7 +124,9 @@ namespace Mh.Functions.AladinNewBookNotifier
         {
             // 이미지 컴포넌트
             ImageComponent hero = new ImageComponent(item.cover);
+            hero.Size = ComponentSize.Full;
             hero.AspectMode = AspectMode.Cover;
+            hero.AspectRatio = new AspectRatio(2, 3);
             hero.Action = new UriTemplateAction("Link", item.link);
 
             // 바디
@@ -136,9 +138,19 @@ namespace Mh.Functions.AladinNewBookNotifier
             TextComponent publisher = new TextComponent(item.publisher);
             publisher.Size = ComponentSize.Sm;
             TextComponent pubDate = new TextComponent(item.pubDate);
-            publisher.Size = ComponentSize.Sm;
-            TextComponent price = new TextComponent(item.priceStandard + "원");
-            price.Size = ComponentSize.Sm;
+            pubDate.Size = ComponentSize.Sm;
+            TextComponent priceStandard = new TextComponent($"정가 {item.priceStandard}원");
+            priceStandard.Size = ComponentSize.Sm;
+            TextComponent priceSales = new TextComponent($"판매가 {item.priceSales}원");
+            priceSales.Size = ComponentSize.Sm;
+            priceSales.Weight = Weight.Bold;
+            // TextComponent mileage = new TextComponent($"(마일리지: {item.mileage}점)");
+            // mileage.Size = ComponentSize.Sm;
+            // mileage.Color = "#888888";
+            BoxComponent price = new BoxComponent(BoxLayout.Baseline);
+            price.Contents.Add(priceStandard);
+            price.Contents.Add(priceSales);
+            //price.Contents.Add(mileage);
 
             BoxComponent body = new BoxComponent(BoxLayout.Vertical);
             body.Contents.Add(title);
@@ -149,13 +161,15 @@ namespace Mh.Functions.AladinNewBookNotifier
 
             // 푸터
             ButtonComponent linkButton = new ButtonComponent();
-            linkButton.Action = new UriTemplateAction("Link", item.link);
+            linkButton.Style = ButtonStyle.Secondary;
+            linkButton.Action = new UriTemplateAction("More", item.link);
             
             BoxComponent footer = new BoxComponent();
             footer.Contents.Add(linkButton);
             
             BubbleContainer container = new BubbleContainer();
             container.Hero = hero;
+            container.Body = body;
             container.Footer = footer;
 
             return FlexMessage.CreateBubbleMessage(item.title).SetBubbleContainer(container);
