@@ -1,4 +1,4 @@
-namespace Mh.Functions.AladinNewBookNotifier
+namespace Mh.Functions.AladinNewBookNotifier.Aladin
 {
     public static class Const
     {

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Mh.Functions.AladinNewBookNotifier
+namespace Mh.Functions.AladinNewBookNotifier.Aladin
 {
     public class ItemListResult
     {

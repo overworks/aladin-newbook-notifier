@@ -5,7 +5,7 @@ using Microsoft.WindowsAzure.Storage.Table;
 using Line.Messaging;
 using Line.Messaging.Webhooks;
 
-namespace Mh.Functions.AladinNewBookNotifier
+namespace Mh.Functions.AladinNewBookNotifier.Line
 {
     public class LineBotApp : WebhookApplication
     {
@@ -22,7 +22,7 @@ namespace Mh.Functions.AladinNewBookNotifier
             this.log = log;
         }
 
-        public async Task MulticastItemMessages(List<ItemLookUpResult.Item> itemList)
+        public async Task MulticastItemMessages(List<Aladin.ItemLookUpResult.Item> itemList)
         {
             // 한번에 보낼 수 있는 건 5개까지다.
             int count = 0;
@@ -37,7 +37,7 @@ namespace Mh.Functions.AladinNewBookNotifier
                         break;
                     }
 
-                    ISendMessage message = LineUtils.MakeBookMessage(itemList[count]);
+                    ISendMessage message = Utils.MakeBookMessage(itemList[count]);
                     messageList.Add(message);
 
                     count++;

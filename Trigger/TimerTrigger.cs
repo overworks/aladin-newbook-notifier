@@ -25,11 +25,11 @@ namespace Mh.Functions.AladinNewBookNotifier
             CancellationToken token
             )
         {
-            ItemListResult productList = await AladinUtils.FetchItemListAsync(httpClient, categoryId);
+            Aladin.ItemListResult productList = await Aladin.Utils.FetchItemListAsync(httpClient, categoryId);
             if (productList != null)
             {
                 QueueItem queueItem = new QueueItem(key);
-                foreach (ItemListResult.Item item in productList.item)
+                foreach (Aladin.ItemListResult.Item item in productList.item)
                 {
                     if (token.IsCancellationRequested)
                     {
@@ -75,9 +75,9 @@ namespace Mh.Functions.AladinNewBookNotifier
 
             HttpClient httpClient = new HttpClient();
 
-            Task comicsTask = CheckNewProduct(httpClient, Const.CategoryID_Comics, "COMICS", table, queue, log, token);
-            Task lnovelTask = CheckNewProduct(httpClient, Const.CategoryID_LNovel, "LNOVEL", table, queue, log, token);
-            Task itbookTask = CheckNewProduct(httpClient, Const.CategoryID_ITBook, "ITBOOK", table, queue, log, token);
+            Task comicsTask = CheckNewProduct(httpClient, Aladin.Const.CategoryID_Comics, "COMICS", table, queue, log, token);
+            Task lnovelTask = CheckNewProduct(httpClient, Aladin.Const.CategoryID_LNovel, "LNOVEL", table, queue, log, token);
+            Task itbookTask = CheckNewProduct(httpClient, Aladin.Const.CategoryID_ITBook, "ITBOOK", table, queue, log, token);
 
             await comicsTask;
             await lnovelTask;

@@ -1,14 +1,14 @@
 using Line.Messaging;
 
-namespace Mh.Functions.AladinNewBookNotifier
+namespace Mh.Functions.AladinNewBookNotifier.Line
 {
     /// <summary>라인 관련 유틸 모음</summary>
-    public static class LineUtils
+    public static class Utils
     {
-        public static BubbleContainerFlexMessage MakeBookMessage(ItemLookUpResult.Item item)
+        public static BubbleContainerFlexMessage MakeBookMessage(Aladin.ItemLookUpResult.Item item)
         {
-            string linkUrl = AladinUtils.UnescapeUrl(item.link);
-            string coverUrl = AladinUtils.GetHQCoverUrl(item);
+            string linkUrl = Aladin.Utils.UnescapeUrl(item.link);
+            string coverUrl = Aladin.Utils.GetHQCoverUrl(item);
 
             // 이미지
             ImageComponent hero = new ImageComponent(coverUrl);

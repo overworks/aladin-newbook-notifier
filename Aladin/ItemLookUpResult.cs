@@ -1,14 +1,15 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
-namespace Mh.Functions.AladinNewBookNotifier
+namespace Mh.Functions.AladinNewBookNotifier.Aladin
 {
     public class ItemLookUpResult
     {
-        public class EBook
+        public class SubItem
         {
             public int itemId { get; set; }
-            public string ISBN { get; set; }
+            public string isbn { get; set; }
             public int priceSales { get; set; }
             public string link { get; set; }
         }
@@ -21,7 +22,7 @@ namespace Mh.Functions.AladinNewBookNotifier
 
         public class SubInfo
         {
-            public IList<EBook> ebookList { get; set; }
+            public IList<SubItem> ebookList { get; set; }
             public IList<FileFormat> fileFormatList { get; set; }
             public string subTitle { get; set; }
             public string originalTitle { get; set; }
@@ -61,7 +62,7 @@ namespace Mh.Functions.AladinNewBookNotifier
         public DateTime pubDate { get; set; }
         public int totalResults { get; set; }
         public int startIndex { get; set; }
-        public int itemPerPage { get; set; }
+        public int itemsPerPage { get; set; }
         public string query { get; set; }
         public int searchCategoryId { get; set; }
         public string searchCategoryName { get; set; }

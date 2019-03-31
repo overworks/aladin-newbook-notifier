@@ -12,7 +12,7 @@ using Line.Messaging.Webhooks;
 
 namespace Mh.Functions.AladinNewBookNotifier
 {
-    // 작성중...
+    /// <summary>라인의 신간 알림 채널의 웹훅 트리거</summary>
     public static class LineComicsWebHookTrigger
     {
         private static LineMessagingClient messagingClient;
@@ -46,7 +46,7 @@ namespace Mh.Functions.AladinNewBookNotifier
             try
             {
                 string channelId = Environment.GetEnvironmentVariable("LINE_COMICS_CHANNEL_ID");
-                LineBotApp bot = new LineBotApp(channelId, messagingClient, accountTable, log);
+                Line.LineBotApp bot = new Line.LineBotApp(channelId, messagingClient, accountTable, log);
                 await bot.RunAsync(events);
             }
             catch (Exception e)

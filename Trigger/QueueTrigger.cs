@@ -23,27 +23,35 @@ namespace Mh.Functions.AladinNewBookNotifier
         private static LineMessagingClient lineMessagingClient;
 
         /// <summary>상품정보 트윗 일괄처리</summary>
-        private static async Task TweetItems(CredentialsEntity credentials, List<ItemLookUpResult.Item> itemList)
+        private static async Task TweetItems(CredentialsEntity credentials, List<Aladin.ItemLookUpResult.Item> itemList, CancellationToken cancellationToken)
         {
-            string consumerKey = Environment.GetEnvironmentVariable("TWITTER_CONSUMER_KEY");
-            string consumerSecret = Environment.GetEnvironmentVariable("TWITTER_CONSUMER_SECRET");
-            string accessToken = credentials.AccessToken;
-            string accessTokenSecret = credentials.AccessTokenSecret;
-
-            Tokens tokens = Tokens.Create(consumerKey, consumerSecret, accessToken, accessTokenSecret);
-
-            foreach (ItemLookUpResult.Item item in itemList)
+            if (itemList != null && itemList.Count > 0)
             {
-                Stream stream = await httpClient.GetStreamAsync(item.GetHQCoverUrl());
-                MediaUploadResult mediaUploadResult = await tokens.Media.UploadAsync(stream);
+                string consumerKey = Environment.GetEnvironmentVariable("TWITTER_CONSUMER_KEY");
+                string consumerSecret = Environment.GetEnvironmentVariable("TWITTER_CONSUMER_SECRET");
+                string accessToken = credentials.AccessToken;
+                string accessTokenSecret = credentials.AccessTokenSecret;
 
-                long[] mediaIds = { mediaUploadResult.MediaId };
-                string status = TwitterUtils.MakeTweetStatus(item);
-                StatusResponse updateResponse = await tokens.Statuses.UpdateAsync(status, media_ids: mediaIds);
+                Tokens tokens = Tokens.Create(consumerKey, consumerSecret, accessToken, accessTokenSecret);
+
+                foreach (Aladin.ItemLookUpResult.Item item in itemList)
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        break;
+                    }
+
+                    Stream stream = await httpClient.GetStreamAsync(Aladin.Utils.GetHQCoverUrl(item));
+                    MediaUploadResult mediaUploadResult = await tokens.Media.UploadAsync(stream);
+
+                    long[] mediaIds = { mediaUploadResult.MediaId };
+                    string status = Aladin.Utils.ToTwitterStatus(item);
+                    StatusResponse updateResponse = await tokens.Statuses.UpdateAsync(status, media_ids: mediaIds, cancellationToken: cancellationToken);
+                }
             }
         }
 
-        private static async Task SendLineMessage(CloudTable accountTable, List<ItemLookUpResult.Item> itemList, ILogger log)
+        private static async Task SendLineMessage(CloudTable accountTable, List<Aladin.ItemLookUpResult.Item> itemList, ILogger log)
         {
             if (lineMessagingClient == null)
             {
@@ -54,7 +62,7 @@ namespace Mh.Functions.AladinNewBookNotifier
             }
 
             string channelId = Environment.GetEnvironmentVariable("LINE_COMICS_CHANNEL_ID");
-            LineBotApp lineBot = new LineBotApp(channelId, lineMessagingClient, accountTable, log);
+            Line.LineBotApp lineBot = new Line.LineBotApp(channelId, lineMessagingClient, accountTable, log);
             await lineBot.MulticastItemMessages(itemList);
         }
 
@@ -65,7 +73,7 @@ namespace Mh.Functions.AladinNewBookNotifier
             [Table("LineAccount")] CloudTable lineAccountTable,
             [Table("Credentials", "Twitter")] CloudTable credentialsTable,
             ILogger log,
-            CancellationToken token)
+            CancellationToken cancellationToken)
         {
             try
             {
@@ -80,15 +88,15 @@ namespace Mh.Functions.AladinNewBookNotifier
                     throw new Exception($"credentials {queueItem.Category} did not exist.");
                 }
 
-                List<ItemLookUpResult.Item> itemList = new List<ItemLookUpResult.Item>();
+                List<Aladin.ItemLookUpResult.Item> itemList = new List<Aladin.ItemLookUpResult.Item>();
                 TableBatchOperation batchOperation = new TableBatchOperation();
 
                 foreach (string itemId in queueItem.ItemList)
                 {
-                    ItemLookUpResult lookUpResult = await AladinUtils.LookUpItemAsync(httpClient, itemId);
-                    foreach (ItemLookUpResult.Item item in lookUpResult.item)
+                    Aladin.ItemLookUpResult lookUpResult = await Aladin.Utils.LookUpItemAsync(httpClient, itemId);
+                    foreach (Aladin.ItemLookUpResult.Item item in lookUpResult.item)
                     {
-                        if (token.IsCancellationRequested)
+                        if (cancellationToken.IsCancellationRequested)
                         {
                             throw new Exception("trigger was cancelled.");
                         }
@@ -103,9 +111,9 @@ namespace Mh.Functions.AladinNewBookNotifier
                     }
                 }
 
-                if (itemList.Count > 0)
+                if (itemList.Count > 0 && !cancellationToken.IsCancellationRequested)
                 {
-                    Task tweetTask = TweetItems(credentialsEntity, itemList);
+                    Task tweetTask = TweetItems(credentialsEntity, itemList, cancellationToken);
 
                     // 지금은 테스트중이라 만화쪽만 처리한다.
                     Task lineTask = queueItem.Category == "COMICS" ? SendLineMessage(lineAccountTable, itemList, log) : Task.CompletedTask;
