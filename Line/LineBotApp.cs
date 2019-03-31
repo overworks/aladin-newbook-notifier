@@ -9,23 +9,50 @@ namespace Mh.Functions.AladinNewBookNotifier
 {
     public class LineBotApp : WebhookApplication
     {
+        private string channelId;
         private LineMessagingClient messagingClient;
         private CloudTable accountTable;
         private ILogger log;
-
-        public LineBotApp(LineMessagingClient messagingClient, CloudTable accountTable, ILogger log)
+        
+        public LineBotApp(string channelId, LineMessagingClient messagingClient, CloudTable accountTable, ILogger log)
         {
+            this.channelId = channelId;
             this.messagingClient = messagingClient;
             this.accountTable = accountTable;
             this.log = log;
         }
 
-        public async Task MulticastMessages(IList<ISendMessage> messages)
+        public async Task MulticastItemMessages(List<ItemLookUpResult.Item> itemList)
+        {
+            // 한번에 보낼 수 있는 건 5개까지다.
+            int count = 0;
+            List<ISendMessage> messageList = new List<ISendMessage>();
+            while (count < itemList.Count)
+            {
+                messageList.Clear();
+                for (int i = 0; i < 5; ++i)
+                {
+                    if (count >= itemList.Count)
+                    {
+                        break;
+                    }
+
+                    ISendMessage message = LineUtils.MakeBookMessage(itemList[count]);
+                    messageList.Add(message);
+
+                    count++;
+                }
+                await MulticastMessages(messageList);
+            }
+        }
+
+        private async Task MulticastMessages(IList<ISendMessage> messages)
         {
             TableContinuationToken continuationToken = null;
             do
             {
-                TableQuery<LineAccountEntity> query = new TableQuery<LineAccountEntity>();
+                TableQuery<LineAccountEntity> query = new TableQuery<LineAccountEntity>()
+                    .Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, channelId));
                 query.TakeCount = 150;
             
                 TableQuerySegment<LineAccountEntity> querySegment = await accountTable.ExecuteQuerySegmentedAsync(query, continuationToken);
@@ -95,8 +122,9 @@ namespace Mh.Functions.AladinNewBookNotifier
         protected virtual async Task InsertOrReplaceAccount(WebhookEvent ev)
         {
             LineAccountEntity entity = new LineAccountEntity();
-            entity.PartitionKey = ev.Source.Type.ToString();
+            entity.PartitionKey = channelId;
             entity.RowKey = ev.Source.Id;
+            entity.Type = ev.Source.Type.ToString();
 
             TableOperation operation = TableOperation.InsertOrReplace(entity);
             await accountTable.ExecuteAsync(operation);
@@ -105,8 +133,9 @@ namespace Mh.Functions.AladinNewBookNotifier
         protected virtual async Task DeleteAccount(WebhookEvent ev)
         {
             LineAccountEntity entity = new LineAccountEntity();
-            entity.PartitionKey = ev.Source.Type.ToString();
+            entity.PartitionKey = channelId;
             entity.RowKey = ev.Source.Id;
+            entity.Type = ev.Source.Type.ToString();
 
             TableOperation operation = TableOperation.Delete(entity);
             await accountTable.ExecuteAsync(operation);

@@ -45,7 +45,8 @@ namespace Mh.Functions.AladinNewBookNotifier
 
             try
             {
-                LineBotApp bot = new LineBotApp(messagingClient, accountTable, log);
+                string channelId = Environment.GetEnvironmentVariable("LINE_COMICS_CHANNEL_ID");
+                LineBotApp bot = new LineBotApp(channelId, messagingClient, accountTable, log);
                 await bot.RunAsync(events);
             }
             catch (Exception e)

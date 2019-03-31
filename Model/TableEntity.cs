@@ -15,7 +15,8 @@ namespace Mh.Functions.AladinNewBookNotifier
 
     public class LineAccountEntity : TableEntity
     {
-        public string Type { get { return PartitionKey; } }
+        public string Type { get; set; }
+        public string ChannelId { get { return PartitionKey; } }
         public string Id { get { return RowKey; } }
     }
 }

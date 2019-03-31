@@ -15,43 +15,8 @@ namespace Mh.Functions.AladinNewBookNotifier
 {
     public static class TimerTrigger
     {
-        static async Task<ItemListResult> FetchItemListAsync(HttpClient httpClient, bool eBook, string categoryId, ILogger log)
-        {
-            string ttbKey = Environment.GetEnvironmentVariable("ALADIN_TTB_KEY");
-            string partnerId = Environment.GetEnvironmentVariable("ALADIN_PARTNER_ID");
-
-            Dictionary<string, string> queryDict = new Dictionary<string, string>();
-            queryDict.Add("querytype", "itemnewall");
-            queryDict.Add("version", "20131101");
-            queryDict.Add("cover", "big");
-            queryDict.Add("output", "js");
-            queryDict.Add("maxresults", "30");
-            //queryDict.Add("searchtarget", eBook ? "ebook" : "book");
-            //queryDict.Add("optresult", "ebooklist,fileformatlist");
-            queryDict.Add("categoryid", categoryId);
-            queryDict.Add("ttbkey", ttbKey);
-            queryDict.Add("partner", partnerId);
-
-            StringBuilder sb = new StringBuilder(256);
-            sb.Append(Const.EndPoint_List + "?");
-            foreach (var kvp in queryDict)
-            {
-                sb.Append(kvp.Key).Append("=").Append(kvp.Value).Append("&");
-            }
-            
-            Uri uri = new Uri(new Uri(Const.Domain), sb.ToString());
-
-            log.LogInformation("target uri: " + uri);
-
-            string response = await httpClient.GetStringAsync(uri);
-            ItemListResult result = JsonConvert.DeserializeObject<ItemListResult>(response);
-
-            return result;
-        }
-
         static async Task CheckNewProduct(
             HttpClient httpClient,
-            bool eBook,
             string categoryId,
             string key,
             CloudTable table,
@@ -60,7 +25,7 @@ namespace Mh.Functions.AladinNewBookNotifier
             CancellationToken token
             )
         {
-            ItemListResult productList = await FetchItemListAsync(httpClient, eBook, categoryId, log);
+            ItemListResult productList = await AladinUtils.FetchItemListAsync(httpClient, categoryId);
             if (productList != null)
             {
                 QueueItem queueItem = new QueueItem(key);
@@ -110,9 +75,9 @@ namespace Mh.Functions.AladinNewBookNotifier
 
             HttpClient httpClient = new HttpClient();
 
-            Task comicsTask = CheckNewProduct(httpClient, false, Const.CategoryID_Comics, "COMICS", table, queue, log, token);
-            Task lnovelTask = CheckNewProduct(httpClient, false, Const.CategoryID_LNovel, "LNOVEL", table, queue, log, token);
-            Task itbookTask = CheckNewProduct(httpClient, false, Const.CategoryID_ITBook, "ITBOOK", table, queue, log, token);
+            Task comicsTask = CheckNewProduct(httpClient, Const.CategoryID_Comics, "COMICS", table, queue, log, token);
+            Task lnovelTask = CheckNewProduct(httpClient, Const.CategoryID_LNovel, "LNOVEL", table, queue, log, token);
+            Task itbookTask = CheckNewProduct(httpClient, Const.CategoryID_ITBook, "ITBOOK", table, queue, log, token);
 
             await comicsTask;
             await lnovelTask;
