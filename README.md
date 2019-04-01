@@ -1,6 +1,6 @@
 # aladin-newbook-notifier
 
-[Microsoft Azure Functions](https://azure.microsoft.com/ko-kr/services/functions/)과 [알라딘의 OpenAPI](http://blog.aladin.co.kr/openapi)를 이용하여 신간정보를 주기적으로 트위터와 알라딘(현재 테스트 중)에 올립니다.
+[Microsoft Azure Functions](https://azure.microsoft.com/ko-kr/services/functions/)과 [알라딘의 OpenAPI](http://blog.aladin.co.kr/openapi)를 이용하여 신간정보를 주기적으로 트위터와 라인(현재 테스트 중)에 올립니다.
 
 ## 환경
 
