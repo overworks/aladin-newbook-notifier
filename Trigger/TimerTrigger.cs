@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.WebJobs;
@@ -15,8 +14,9 @@ namespace Mh.Functions.AladinNewBookNotifier
 {
     public static class TimerTrigger
     {
+        static HttpClient httpClient = new HttpClient();
+
         static async Task CheckNewProduct(
-            HttpClient httpClient,
             string categoryId,
             string key,
             CloudTable table,
@@ -25,9 +25,9 @@ namespace Mh.Functions.AladinNewBookNotifier
             CancellationToken token
             )
         {
-            Aladin.ItemListResult productList = await Aladin.Utils.FetchItemListAsync(httpClient, categoryId);
-            if (productList != null)
+            try
             {
+                Aladin.ItemListResult productList = await Aladin.Utils.FetchItemListAsync(httpClient, categoryId);
                 QueueItem queueItem = new QueueItem(key);
                 foreach (Aladin.ItemListResult.Item item in productList.item)
                 {
@@ -37,20 +37,13 @@ namespace Mh.Functions.AladinNewBookNotifier
                         break;
                     }
 
-                    try
+                    TableOperation retrieveOperation = TableOperation.Retrieve<BookEntity>(key, item.itemId.ToString());
+                    TableResult retrievedResult = await table.ExecuteAsync(retrieveOperation);
+                    if (retrievedResult.Result == null)
                     {
-                        TableOperation retrieveOperation = TableOperation.Retrieve<BookEntity>(key, item.itemId.ToString());
-                        TableResult retrievedResult = await table.ExecuteAsync(retrieveOperation);
-                        if (retrievedResult.Result == null)
-                        {
-                            log.LogInformation("enqueue " + item.title);
+                        log.LogInformation("enqueue " + item.title);
 
-                            queueItem.ItemList.Add(item.itemId.ToString());
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        log.LogError(e.Message);
+                        queueItem.ItemList.Add(item.itemId);
                     }
                 }
 
@@ -60,6 +53,10 @@ namespace Mh.Functions.AladinNewBookNotifier
                     CloudQueueMessage message = new CloudQueueMessage(json);
                     await queue.AddMessageAsync(message);
                 }
+            }
+            catch (Exception e)
+            {
+                log.LogError(e.Message);
             }
         }
 
@@ -73,11 +70,9 @@ namespace Mh.Functions.AladinNewBookNotifier
         {
             log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
 
-            HttpClient httpClient = new HttpClient();
-
-            Task comicsTask = CheckNewProduct(httpClient, Aladin.Const.CategoryID_Comics, "COMICS", table, queue, log, token);
-            Task lnovelTask = CheckNewProduct(httpClient, Aladin.Const.CategoryID_LNovel, "LNOVEL", table, queue, log, token);
-            Task itbookTask = CheckNewProduct(httpClient, Aladin.Const.CategoryID_ITBook, "ITBOOK", table, queue, log, token);
+            Task comicsTask = CheckNewProduct(Aladin.Const.CategoryID_Comics, "COMICS", table, queue, log, token);
+            Task lnovelTask = CheckNewProduct(Aladin.Const.CategoryID_LNovel, "LNOVEL", table, queue, log, token);
+            Task itbookTask = CheckNewProduct(Aladin.Const.CategoryID_ITBook, "ITBOOK", table, queue, log, token);
 
             await comicsTask;
             await lnovelTask;

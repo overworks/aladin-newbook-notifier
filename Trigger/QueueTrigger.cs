@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using CoreTweet;
@@ -91,7 +90,7 @@ namespace Mh.Functions.AladinNewBookNotifier
                 List<Aladin.ItemLookUpResult.Item> itemList = new List<Aladin.ItemLookUpResult.Item>();
                 TableBatchOperation batchOperation = new TableBatchOperation();
 
-                foreach (string itemId in queueItem.ItemList)
+                foreach (int itemId in queueItem.ItemList)
                 {
                     Aladin.ItemLookUpResult lookUpResult = await Aladin.Utils.LookUpItemAsync(httpClient, itemId);
                     foreach (Aladin.ItemLookUpResult.Item item in lookUpResult.item)
@@ -103,7 +102,7 @@ namespace Mh.Functions.AladinNewBookNotifier
 
                         BookEntity bookEntity = new BookEntity();
                         bookEntity.PartitionKey = queueItem.Category;
-                        bookEntity.RowKey = itemId;
+                        bookEntity.RowKey = itemId.ToString();
                         bookEntity.Name = item.title;
                         
                         batchOperation.InsertOrReplace(bookEntity);

@@ -13,7 +13,7 @@ namespace Mh.Functions.AladinNewBookNotifier.Aladin
     {
         public static string UnescapeUrl(string url)
         {
-            if (string.IsNullOrEmpty(url))
+            if (!string.IsNullOrEmpty(url))
             {
                 return url.Replace(@"\\/", @"/").Replace(@"&amp;", @"&");
             }
@@ -52,7 +52,7 @@ namespace Mh.Functions.AladinNewBookNotifier.Aladin
 
         /// <summary>알라딘 상품 조회 API를 사용하여 상품 정보를 가져옴</summary>
         /// <param name="itemId">상품 ID</param>
-        public static async Task<ItemLookUpResult> LookUpItemAsync(HttpClient httpClient, string itemId)
+        public static async Task<ItemLookUpResult> LookUpItemAsync(HttpClient httpClient, int itemId)
         {
             string ttbKey = Environment.GetEnvironmentVariable("ALADIN_TTB_KEY");
             string partnerId = Environment.GetEnvironmentVariable("ALADIN_PARTNER_ID");
