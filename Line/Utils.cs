@@ -10,20 +10,41 @@ namespace Mh.Functions.AladinNewBookNotifier.Line
             string linkUrl = Aladin.Utils.UnescapeUrl(item.link);
             string coverUrl = Aladin.Utils.GetHQCoverUrl(item);
 
+            UriTemplateAction linkAction = new UriTemplateAction("상품 페이지로 이동", linkUrl);
+
             // 이미지
             ImageComponent hero = new ImageComponent(coverUrl);
             hero.Size = ComponentSize.Full;
             hero.AspectMode = AspectMode.Cover;
             //hero.AspectRatio = new AspectRatio(2, 3);
-            hero.AspectRatio = AspectRatio._1_1;   // 2:3으로 했더니 너무 길어서 그냥 1:1로 
-            hero.Action = new UriTemplateAction("상품 페이지로 이동", linkUrl);
+            hero.AspectRatio = AspectRatio._151_1;   // 잘려도 여러개(그래봐야 2개까지지만) 나오는게 낫다고 의견이 나와서
+            hero.Action = linkAction;
 
             // 바디
-            TextComponent title = new TextComponent(item.title);
-            title.Size = ComponentSize.Xl;
+            // 부제가 있으면 따로 처리를 해준다.
+            string titleStr = item.title;
+            string subTitleStr = item.subInfo.subTitle;
+            if (!string.IsNullOrEmpty(subTitleStr))
+            {
+                int index = titleStr.IndexOf(subTitleStr);
+                if (index >= 0)
+                {
+                    titleStr = titleStr.Substring(0, index - 3);
+                }
+            }
+
+            TextComponent title = new TextComponent(titleStr);
+            title.Size = ComponentSize.Lg;
             title.Weight = Weight.Bold;
+            TextComponent subTitle = null;
+            if (!string.IsNullOrEmpty(subTitleStr))
+            {
+                subTitle = new TextComponent(subTitleStr);
+                subTitle.Size = ComponentSize.Sm;
+            }
             TextComponent author = new TextComponent(item.author);
             author.Size = ComponentSize.Sm;
+            author.Margin = Spacing.Sm;
             TextComponent publisher = new TextComponent(item.publisher);
             publisher.Size = ComponentSize.Sm;
             TextComponent pubDate = new TextComponent(item.pubDate);
@@ -35,34 +56,25 @@ namespace Mh.Functions.AladinNewBookNotifier.Line
             priceSales.Size = ComponentSize.Sm;
             priceSales.Weight = Weight.Bold;
             priceSales.Flex = 0;
-            // TextComponent mileage = new TextComponent($"마일리지 {item.mileage}점");
-            // mileage.Size = ComponentSize.Sm;
-            // mileage.Color = "#888888";
-            // mileage.Flex = 0;
             BoxComponent price = new BoxComponent(BoxLayout.Baseline);
             price.Contents.Add(priceStandard);
             price.Contents.Add(priceSales);
-            //price.Contents.Add(mileage);            
             
             BoxComponent body = new BoxComponent(BoxLayout.Vertical);
             body.Contents.Add(title);
+            if (subTitleStr != null)
+            {
+                body.Contents.Add(subTitle);
+            }
             body.Contents.Add(author);
             body.Contents.Add(publisher);
             body.Contents.Add(pubDate);
             body.Contents.Add(price);
+            body.Action = linkAction;
 
-            // 푸터
-            ButtonComponent linkButton = new ButtonComponent();
-            linkButton.Style = ButtonStyle.Secondary;
-            linkButton.Action = new UriTemplateAction("상품 페이지로 이동", linkUrl);
-            
-            BoxComponent footer = new BoxComponent();
-            footer.Contents.Add(linkButton);
-            
             BubbleContainer container = new BubbleContainer();
             container.Hero = hero;
             container.Body = body;
-            container.Footer = footer;
 
             return container;
         }

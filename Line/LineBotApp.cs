@@ -40,7 +40,12 @@ namespace Mh.Functions.AladinNewBookNotifier.Line
                     }
 
                     // 캐러셀 하나에는 10개까지...인데 그럼 한번에 50개 보낼 수 있는건가?
-                    CarouselContainerFlexMessage carouselMessage = FlexMessage.CreateCarouselMessage("신간");
+                    string altText = itemList[count].title;
+                    if (count < itemList.Count - 1)
+                    {
+                        altText += " 외";
+                    }
+                    CarouselContainerFlexMessage carouselMessage = FlexMessage.CreateCarouselMessage(altText);
 
                     for (int j = 0; j < 10; ++j)
                     {
