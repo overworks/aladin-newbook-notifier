@@ -1,3 +1,4 @@
+using System;
 using Line.Messaging;
 
 namespace Mh.Functions.AladinNewBookNotifier.Line
@@ -31,6 +32,13 @@ namespace Mh.Functions.AladinNewBookNotifier.Line
                 {
                     titleStr = titleStr.Substring(0, index - 3);
                 }
+            }
+
+            // 성인물이면 추가로 표시를 해준다.
+            if (item.adult)
+            {
+                string emoji = char.ConvertFromUtf32(0x1f51e);
+                titleStr = emoji + " " + titleStr;
             }
 
             TextComponent title = new TextComponent(titleStr);
