@@ -24,12 +24,14 @@ namespace Mh.Functions.AladinNewBookNotifier.Line
 
         public async Task MulticastItemMessages(List<Aladin.ItemLookUpResult.Item> itemList)
         {
-            // 한번에 보낼 수 있는 건 5개까지다.
+            
             int count = 0;
             List<ISendMessage> messageList = new List<ISendMessage>();
             while (count < itemList.Count)
             {
                 messageList.Clear();
+
+                // 한번에 보낼 수 있는 건 5개.
                 for (int i = 0; i < 5; ++i)
                 {
                     if (count >= itemList.Count)
@@ -37,12 +39,29 @@ namespace Mh.Functions.AladinNewBookNotifier.Line
                         break;
                     }
 
-                    ISendMessage message = Utils.MakeBookMessage(itemList[count]);
-                    messageList.Add(message);
+                    // 캐러셀 하나에는 10개까지...인데 그럼 한번에 50개 보낼 수 있는건가?
+                    CarouselContainerFlexMessage carouselMessage = FlexMessage.CreateCarouselMessage("신간");
 
-                    count++;
+                    for (int j = 0; j < 10; ++j)
+                    {
+                        if (count >= itemList.Count)
+                        {
+                            break;
+                        }
+
+                        BubbleContainer container = itemList[count].ToBubbleContainer();
+                        carouselMessage.AddBubbleContainer(container);
+                        
+                        count++;
+                    }
+
+                    messageList.Add(carouselMessage);
                 }
-                await MulticastMessages(messageList);
+
+                if (messageList.Count > 0)
+                {
+                    await MulticastMessages(messageList);
+                }
             }
         }
 

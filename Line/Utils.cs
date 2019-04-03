@@ -5,7 +5,7 @@ namespace Mh.Functions.AladinNewBookNotifier.Line
     /// <summary>라인 관련 유틸 모음</summary>
     public static class Utils
     {
-        public static BubbleContainerFlexMessage MakeBookMessage(Aladin.ItemLookUpResult.Item item)
+        public static BubbleContainer ToBubbleContainer(this Aladin.ItemLookUpResult.Item item)
         {
             string linkUrl = Aladin.Utils.UnescapeUrl(item.link);
             string coverUrl = Aladin.Utils.GetHQCoverUrl(item);
@@ -14,7 +14,8 @@ namespace Mh.Functions.AladinNewBookNotifier.Line
             ImageComponent hero = new ImageComponent(coverUrl);
             hero.Size = ComponentSize.Full;
             hero.AspectMode = AspectMode.Cover;
-            hero.AspectRatio = new AspectRatio(2, 3);
+            //hero.AspectRatio = new AspectRatio(2, 3);
+            hero.AspectRatio = AspectRatio._1_1;   // 2:3으로 했더니 너무 길어서 그냥 1:1로 
             hero.Action = new UriTemplateAction("상품 페이지로 이동", linkUrl);
 
             // 바디
@@ -63,9 +64,7 @@ namespace Mh.Functions.AladinNewBookNotifier.Line
             container.Body = body;
             container.Footer = footer;
 
-            string altText = $"{item.title} ({item.author} / {item.publisher} / {item.pubDate} / {item.priceStandard}원)";
-
-            return FlexMessage.CreateBubbleMessage(altText).SetBubbleContainer(container);
+            return container;
         }
     }
 }
