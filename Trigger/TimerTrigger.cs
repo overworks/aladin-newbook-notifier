@@ -18,7 +18,6 @@ namespace Mh.Functions.AladinNewBookNotifier
 
         static async Task CheckNewProduct(
             string categoryId,
-            string key,
             CloudTable table,
             CloudQueue queue,
             ILogger log,
@@ -28,7 +27,7 @@ namespace Mh.Functions.AladinNewBookNotifier
             try
             {
                 Aladin.ItemListResult productList = await Aladin.Utils.FetchItemListAsync(httpClient, categoryId);
-                QueueItem queueItem = new QueueItem(key);
+                QueueItem queueItem = new QueueItem(categoryId);
                 foreach (Aladin.ItemListResult.Item item in productList.item)
                 {
                     if (token.IsCancellationRequested)
@@ -37,7 +36,7 @@ namespace Mh.Functions.AladinNewBookNotifier
                         break;
                     }
 
-                    TableOperation retrieveOperation = TableOperation.Retrieve<BookEntity>(key, item.itemId.ToString());
+                    TableOperation retrieveOperation = TableOperation.Retrieve<BookEntity>(categoryId, item.itemId.ToString());
                     TableResult retrievedResult = await table.ExecuteAsync(retrieveOperation);
                     if (retrievedResult.Result == null)
                     {
@@ -70,9 +69,9 @@ namespace Mh.Functions.AladinNewBookNotifier
         {
             log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
 
-            Task comicsTask = CheckNewProduct(Aladin.Const.CategoryID_Comics, "COMICS", table, queue, log, token);
-            Task lnovelTask = CheckNewProduct(Aladin.Const.CategoryID_LNovel, "LNOVEL", table, queue, log, token);
-            Task itbookTask = CheckNewProduct(Aladin.Const.CategoryID_ITBook, "ITBOOK", table, queue, log, token);
+            Task comicsTask = CheckNewProduct(Aladin.Const.CategoryID_Comics, table, queue, log, token);
+            Task lnovelTask = CheckNewProduct(Aladin.Const.CategoryID_LNovel, table, queue, log, token);
+            Task itbookTask = CheckNewProduct(Aladin.Const.CategoryID_ITBook, table, queue, log, token);
 
             await comicsTask;
             await lnovelTask;

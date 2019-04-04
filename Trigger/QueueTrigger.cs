@@ -79,12 +79,12 @@ namespace Mh.Functions.AladinNewBookNotifier
                 QueueItem queueItem = JsonConvert.DeserializeObject<QueueItem>(message.AsString);
 
                 // 스토리지에 저장되어 있는 트위터의 액세스 토큰을 가져옴
-                TableOperation retrieveOperation = TableOperation.Retrieve<CredentialsEntity>("Twitter", queueItem.Category);
+                TableOperation retrieveOperation = TableOperation.Retrieve<CredentialsEntity>("Twitter", queueItem.CategoryId);
                 TableResult retrievedResult = await credentialsTable.ExecuteAsync(retrieveOperation);
                 CredentialsEntity credentialsEntity = retrievedResult.Result as CredentialsEntity;
                 if (credentialsEntity == null)
                 {
-                    throw new Exception($"credentials {queueItem.Category} did not exist.");
+                    throw new Exception($"credentials {queueItem.CategoryId} did not exist.");
                 }
 
                 List<Aladin.ItemLookUpResult.Item> itemList = new List<Aladin.ItemLookUpResult.Item>();
@@ -101,7 +101,7 @@ namespace Mh.Functions.AladinNewBookNotifier
                         }
 
                         BookEntity bookEntity = new BookEntity();
-                        bookEntity.PartitionKey = queueItem.Category;
+                        bookEntity.PartitionKey = queueItem.CategoryId;
                         bookEntity.RowKey = itemId.ToString();
                         bookEntity.Name = item.title;
                         
@@ -115,7 +115,7 @@ namespace Mh.Functions.AladinNewBookNotifier
                     Task tweetTask = TweetItems(credentialsEntity, itemList, cancellationToken);
 
                     // 지금은 테스트중이라 만화쪽만 처리한다.
-                    Task lineTask = queueItem.Category == "COMICS" ? SendLineMessage(lineAccountTable, itemList, log) : Task.CompletedTask;
+                    Task lineTask = queueItem.CategoryId == Aladin.Const.CategoryID_Comics ? SendLineMessage(lineAccountTable, itemList, log) : Task.CompletedTask;
 
                     // 배치처리는 파티션 키가 동일해야하고, 100개까지 가능하다는데...
                     // 일단 파티션 키는 전부 동일하게 넘어올테고, 100개 넘을일은 없겠...지?

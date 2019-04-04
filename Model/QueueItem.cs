@@ -4,12 +4,12 @@ namespace Mh.Functions.AladinNewBookNotifier
 {
     public class QueueItem
     {
-        public string Category { get; set; }
+        public string CategoryId { get; set; }
         public IList<int> ItemList { get; set; }
 
-        public QueueItem(string category)
+        public QueueItem(string categoryId)
         {
-            Category = category;
+            CategoryId = categoryId;
             ItemList = new List<int>();
         }
     }
