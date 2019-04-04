@@ -17,7 +17,6 @@ namespace Mh.Functions.AladinNewBookNotifier.Line
             ImageComponent hero = new ImageComponent(coverUrl);
             hero.Size = ComponentSize.Full;
             hero.AspectMode = AspectMode.Cover;
-            //hero.AspectRatio = new AspectRatio(2, 3);
             hero.AspectRatio = AspectRatio._151_1;   // 잘려도 여러개(그래봐야 2개까지지만) 나오는게 낫다고 의견이 나와서
             hero.Action = linkAction;
 
@@ -70,7 +69,7 @@ namespace Mh.Functions.AladinNewBookNotifier.Line
             
             BoxComponent body = new BoxComponent(BoxLayout.Vertical);
             body.Contents.Add(title);
-            if (subTitleStr != null)
+            if (subTitle != null)
             {
                 body.Contents.Add(subTitle);
             }

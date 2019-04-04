@@ -99,21 +99,28 @@ namespace Mh.Functions.AladinNewBookNotifier.Line
         protected override async Task OnMessageAsync(MessageEvent ev)
         {
             log.LogInformation("OnMessage");
-            switch (ev.Message.Type)
+
+            // C# 7부터 추가된 형식 패턴.
+            switch (ev.Message)
             {
-                case EventMessageType.Text:
+                // 일반적인 텍스트 메시지
+                case TextEventMessage textMessage:
                     break;
-                case EventMessageType.Image:
+
+                // 이미지, 오디오, 비디오
+                case MediaEventMessage mediaMessage:
                     break;
-                case EventMessageType.Video:
+
+                // 장소
+                case LocationEventMessage locationMessage:
                     break;
-                case EventMessageType.Audio:
+
+                // 스티커
+                case StickerEventMessage stickerMessage:
                     break;
-                case EventMessageType.Location:
-                    break;
-                case EventMessageType.Sticker:
-                    break;
-                case EventMessageType.File:
+
+                // 파일
+                case FileEventMessage fileMessage:
                     break;
             }
             await Task.CompletedTask;
