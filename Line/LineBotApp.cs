@@ -150,6 +150,8 @@ namespace Mh.Functions.AladinNewBookNotifier.Line
             entity.RowKey = ev.Source.Id;
             entity.Type = ev.Source.Type.ToString();
 
+            log.LogInformation($"Channel ID: {channelId}, ID: {ev.Source.Id}, Type: {ev.Source.Type.ToString()}");
+
             TableOperation operation = TableOperation.InsertOrReplace(entity);
             await accountTable.ExecuteAsync(operation);
         }
@@ -160,6 +162,9 @@ namespace Mh.Functions.AladinNewBookNotifier.Line
             entity.PartitionKey = channelId;
             entity.RowKey = ev.Source.Id;
             entity.Type = ev.Source.Type.ToString();
+            entity.ETag = "*";
+
+            log.LogInformation($"Channel ID: {channelId}, ID: {ev.Source.Id}, Type: {ev.Source.Type.ToString()}");
 
             TableOperation operation = TableOperation.Delete(entity);
             await accountTable.ExecuteAsync(operation);
