@@ -21,6 +21,14 @@ namespace Mh.Functions.AladinNewBookNotifier
         private static HttpClient httpClient = new HttpClient();
         private static LineMessagingClient lineMessagingClient;
 
+        static QueueTrigger()
+        {
+            string accessToken = Environment.GetEnvironmentVariable("LINE_COMICS_ACCESS_TOKEN");
+            lineMessagingClient = new LineMessagingClient(accessToken);
+            ServicePoint sp = ServicePointManager.FindServicePoint(new Uri("https://api.line.me"));
+            sp.ConnectionLeaseTimeout = 60 * 1000;
+        }
+
         /// <summary>상품정보 트윗 일괄처리</summary>
         private static async Task TweetItems(CredentialsEntity credentials, List<Aladin.ItemLookUpResult.Item> itemList, CancellationToken cancellationToken)
         {
@@ -52,14 +60,6 @@ namespace Mh.Functions.AladinNewBookNotifier
 
         private static async Task SendLineMessage(CloudTable accountTable, List<Aladin.ItemLookUpResult.Item> itemList, ILogger log)
         {
-            if (lineMessagingClient == null)
-            {
-                string accessToken = Environment.GetEnvironmentVariable("LINE_COMICS_ACCESS_TOKEN");
-                lineMessagingClient = new LineMessagingClient(accessToken);
-                ServicePoint sp = ServicePointManager.FindServicePoint(new Uri("https://api.line.me"));
-                sp.ConnectionLeaseTimeout = 60 * 1000;
-            }
-
             string channelId = Environment.GetEnvironmentVariable("LINE_COMICS_CHANNEL_ID");
             Line.LineBotApp lineBot = new Line.LineBotApp(channelId, lineMessagingClient, accountTable, log);
             await lineBot.MulticastItemMessages(itemList);
@@ -128,7 +128,13 @@ namespace Mh.Functions.AladinNewBookNotifier
             }
             catch (Exception e)
             {
-                log.LogError(e.Message);
+                log.LogError(e.StackTrace);
+
+                // 에러 발생시 내 계정으로 예외 정보를 보냄.
+                string adminLineId = Environment.GetEnvironmentVariable("LINE_ADMIN_USER_ID");
+                var error = new { Type = e.GetType().ToString(), Message = e.Message, StackTrace = e.StackTrace };
+                string json = JsonConvert.SerializeObject(error, Formatting.Indented);
+                await lineMessagingClient.PushMessageAsync(adminLineId, json);
             }
         }
     }
