@@ -73,9 +73,7 @@ namespace Mh.Functions.AladinNewBookNotifier
             Task lnovelTask = CheckNewProduct(Aladin.Const.CategoryID_LNovel, table, queue, log, token);
             Task itbookTask = CheckNewProduct(Aladin.Const.CategoryID_ITBook, table, queue, log, token);
 
-            await comicsTask;
-            await lnovelTask;
-            await itbookTask;
+            await Task.WhenAll(comicsTask, lnovelTask, itbookTask);
         }
     }
 }
