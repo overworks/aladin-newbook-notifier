@@ -29,8 +29,24 @@ namespace Mh.Functions.AladinNewBookNotifier
             sp.ConnectionLeaseTimeout = 60 * 1000;
         }
 
+        /// <summary>상품정보 트윗(비동기 처리)</summary>
+        private static async Task TweetItemAsync(Tokens tokens, Aladin.ItemLookUpResult.Item item, CancellationToken cancellationToken)
+        {
+            var stream = await httpClient.GetStreamAsync(Aladin.Utils.GetHQCoverUrl(item));
+            if (cancellationToken.IsCancellationRequested)
+                return;
+
+            var mediaUploadResult = await tokens.Media.UploadAsync(stream, cancellationToken: cancellationToken);
+            if (cancellationToken.IsCancellationRequested)
+                return;
+
+            long[] mediaIds = { mediaUploadResult.MediaId };
+            string status = Aladin.Utils.ToTwitterStatus(item);
+            var statusResponse = await tokens.Statuses.UpdateAsync(status, media_ids: mediaIds, cancellationToken: cancellationToken);
+        }
+
         /// <summary>상품정보 트윗 일괄처리</summary>
-        private static async Task TweetItems(CredentialsEntity credentials, List<Aladin.ItemLookUpResult.Item> itemList, CancellationToken cancellationToken)
+        private static async Task TweetItemsAsync(CredentialsEntity credentials, List<Aladin.ItemLookUpResult.Item> itemList, CancellationToken cancellationToken)
         {
             if (itemList != null && itemList.Count > 0)
             {
@@ -39,22 +55,20 @@ namespace Mh.Functions.AladinNewBookNotifier
                 string accessToken = credentials.AccessToken;
                 string accessTokenSecret = credentials.AccessTokenSecret;
 
-                Tokens tokens = Tokens.Create(consumerKey, consumerSecret, accessToken, accessTokenSecret);
+                var tokens = Tokens.Create(consumerKey, consumerSecret, accessToken, accessTokenSecret);
 
-                foreach (Aladin.ItemLookUpResult.Item item in itemList)
+                var taskList = new List<Task>(itemList.Count);
+                foreach (var item in itemList)
                 {
                     if (cancellationToken.IsCancellationRequested)
                     {
                         break;
                     }
 
-                    Stream stream = await httpClient.GetStreamAsync(Aladin.Utils.GetHQCoverUrl(item));
-                    MediaUploadResult mediaUploadResult = await tokens.Media.UploadAsync(stream);
-
-                    long[] mediaIds = { mediaUploadResult.MediaId };
-                    string status = Aladin.Utils.ToTwitterStatus(item);
-                    StatusResponse updateResponse = await tokens.Statuses.UpdateAsync(status, media_ids: mediaIds, cancellationToken: cancellationToken);
+                    taskList.Add(TweetItemAsync(tokens, item, cancellationToken));
                 }
+
+                await Task.WhenAll(taskList);
             }
         }
 
@@ -112,7 +126,7 @@ namespace Mh.Functions.AladinNewBookNotifier
 
                 if (itemList.Count > 0 && !cancellationToken.IsCancellationRequested)
                 {
-                    Task tweetTask = TweetItems(credentialsEntity, itemList, cancellationToken);
+                    Task tweetTask = TweetItemsAsync(credentialsEntity, itemList, cancellationToken);
 
                     // 지금은 만화쪽만 처리한다.
                     Task lineTask = queueItem.CategoryId == Aladin.Const.CategoryID_Comics ? SendLineMessage(lineAccountTable, itemList, log) : Task.CompletedTask;
