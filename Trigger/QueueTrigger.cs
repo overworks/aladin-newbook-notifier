@@ -25,7 +25,7 @@ namespace Mh.Functions.AladinNewBookNotifier
         {
             string accessToken = Environment.GetEnvironmentVariable("LINE_COMICS_ACCESS_TOKEN");
             lineMessagingClient = new LineMessagingClient(accessToken);
-            ServicePoint sp = ServicePointManager.FindServicePoint(new Uri("https://api.line.me"));
+            var sp = ServicePointManager.FindServicePoint(new Uri("https://api.line.me"));
             sp.ConnectionLeaseTimeout = 60 * 1000;
         }
 
@@ -46,36 +46,27 @@ namespace Mh.Functions.AladinNewBookNotifier
         }
 
         /// <summary>상품정보 트윗 일괄처리</summary>
-        private static async Task TweetItemsAsync(CredentialsEntity credentials, List<Aladin.ItemLookUpResult.Item> itemList, CancellationToken cancellationToken)
+        private static async Task TweetItemsAsync(Tokens tokens, List<Aladin.ItemLookUpResult.Item> itemList, CancellationToken cancellationToken)
         {
-            if (itemList != null && itemList.Count > 0)
+            // 호출하는 쪽에서 하고 있어서 null 체크 빼버림.
+            var taskList = new List<Task>(itemList.Count);
+            foreach (var item in itemList)
             {
-                string consumerKey = Environment.GetEnvironmentVariable("TWITTER_CONSUMER_KEY");
-                string consumerSecret = Environment.GetEnvironmentVariable("TWITTER_CONSUMER_SECRET");
-                string accessToken = credentials.AccessToken;
-                string accessTokenSecret = credentials.AccessTokenSecret;
-
-                var tokens = Tokens.Create(consumerKey, consumerSecret, accessToken, accessTokenSecret);
-
-                var taskList = new List<Task>(itemList.Count);
-                foreach (var item in itemList)
+                if (cancellationToken.IsCancellationRequested)
                 {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        break;
-                    }
-
-                    taskList.Add(TweetItemAsync(tokens, item, cancellationToken));
+                    break;
                 }
 
-                await Task.WhenAll(taskList);
+                taskList.Add(TweetItemAsync(tokens, item, cancellationToken));
             }
+
+            await Task.WhenAll(taskList);
         }
 
         private static async Task SendLineMessage(CloudTable accountTable, List<Aladin.ItemLookUpResult.Item> itemList, ILogger log)
         {
             string channelId = Environment.GetEnvironmentVariable("LINE_COMICS_CHANNEL_ID");
-            Line.LineBotApp lineBot = new Line.LineBotApp(channelId, lineMessagingClient, accountTable, log);
+            var lineBot = new Line.LineBotApp(channelId, lineMessagingClient, accountTable, log);
             await lineBot.MulticastItemMessages(itemList);
         }
 
@@ -90,32 +81,21 @@ namespace Mh.Functions.AladinNewBookNotifier
         {
             try
             {
-                QueueItem queueItem = JsonConvert.DeserializeObject<QueueItem>(message.AsString);
+                var queueItem = JsonConvert.DeserializeObject<QueueItem>(message.AsString);
+                string categoryId = queueItem.CategoryId;
 
-                // 스토리지에 저장되어 있는 트위터의 액세스 토큰을 가져옴
-                TableOperation retrieveOperation = TableOperation.Retrieve<CredentialsEntity>("Twitter", queueItem.CategoryId);
-                TableResult retrievedResult = await credentialsTable.ExecuteAsync(retrieveOperation);
-                CredentialsEntity credentialsEntity = retrievedResult.Result as CredentialsEntity;
-                if (credentialsEntity == null)
-                {
-                    throw new Exception($"credentials {queueItem.CategoryId} did not exist.");
-                }
-
-                List<Aladin.ItemLookUpResult.Item> itemList = new List<Aladin.ItemLookUpResult.Item>();
-                TableBatchOperation batchOperation = new TableBatchOperation();
+                var itemList = new List<Aladin.ItemLookUpResult.Item>();
+                var batchOperation = new TableBatchOperation();
 
                 foreach (int itemId in queueItem.ItemList)
                 {
-                    Aladin.ItemLookUpResult lookUpResult = await Aladin.Utils.LookUpItemAsync(httpClient, itemId);
-                    foreach (Aladin.ItemLookUpResult.Item item in lookUpResult.item)
+                    var lookUpResult = await Aladin.Utils.LookUpItemAsync(httpClient, itemId);
+                    foreach (var item in lookUpResult.item)
                     {
-                        if (cancellationToken.IsCancellationRequested)
-                        {
-                            throw new Exception("trigger was cancelled.");
-                        }
-
-                        BookEntity bookEntity = new BookEntity();
-                        bookEntity.PartitionKey = queueItem.CategoryId;
+                        cancellationToken.ThrowIfCancellationRequested();
+                        
+                        var bookEntity = new BookEntity();
+                        bookEntity.PartitionKey = categoryId;
                         bookEntity.RowKey = itemId.ToString();
                         bookEntity.Name = item.title;
                         
@@ -126,10 +106,11 @@ namespace Mh.Functions.AladinNewBookNotifier
 
                 if (itemList.Count > 0 && !cancellationToken.IsCancellationRequested)
                 {
-                    Task tweetTask = TweetItemsAsync(credentialsEntity, itemList, cancellationToken);
+                    var tokens = await Twitter.Utils.CreateTokenAsync(credentialsTable, queueItem.CategoryId);
+                    var tweetTask = tokens != null ? TweetItemsAsync(tokens, itemList, cancellationToken) : Task.CompletedTask;
 
                     // 지금은 만화쪽만 처리한다.
-                    Task lineTask = queueItem.CategoryId == Aladin.Const.CategoryID_Comics ? SendLineMessage(lineAccountTable, itemList, log) : Task.CompletedTask;
+                    var lineTask = queueItem.CategoryId == Aladin.Const.CategoryID_Comics ? SendLineMessage(lineAccountTable, itemList, log) : Task.CompletedTask;
 
                     // 배치처리는 파티션 키가 동일해야하고, 100개까지 가능하다는데...
                     // 일단 파티션 키는 전부 동일하게 넘어올테고, 100개 넘을일은 없겠...지?
