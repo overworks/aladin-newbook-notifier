@@ -11,6 +11,41 @@ namespace Mh.Functions.AladinNewBookNotifier
 {
     public static class WeeklyTimerTrigger
     {
+        private static async Task<List<Status>> FetchLastTweetList(
+            Tokens tokens,
+            long userId,
+            DateTimeOffset dateTimeOffset,
+            TimeSpan timeRange,
+            CancellationToken cancellationToken)
+        {
+            var list = new List<Status>();
+            long? max_id = null;
+            bool broken = false;
+            
+            do
+            {
+                if (cancellationToken.IsCancellationRequested) return null;
+                var statuses = await tokens.Statuses.UserTimelineAsync(userId, max_id: max_id, trim_user: true, cancellationToken: cancellationToken);
+
+                foreach (var status in statuses)
+                {
+                    var timeSpan = dateTimeOffset - status.CreatedAt;
+                    if (timeSpan > timeRange)
+                    {
+                        broken = true;
+                        break;
+                    }
+                    list.Add(status);
+                }
+
+                var lastElem = statuses[statuses.Count - 1];
+                max_id = lastElem.Id - 1;
+            }
+            while (!broken);
+
+            return list;
+        }
+
         private static async Task TweetWeeklyReportAsync(
             DateTimeOffset dateTimeOffset,
             CloudTable credentialsTable,
@@ -23,30 +58,8 @@ namespace Mh.Functions.AladinNewBookNotifier
             if (cancellationToken.IsCancellationRequested) return;
 
             // 1주일 전의 것까지 가져오기.
-            var list = new List<Status>();
-            long? max_id = null;
-            bool broken = false;
-            do
-            {
-                if (cancellationToken.IsCancellationRequested) return;
-                var statuses = await tokens.Statuses.UserTimelineAsync(user.Id.Value, max_id: max_id, trim_user: true, cancellationToken: cancellationToken);
-
-                foreach (var status in statuses)
-                {
-                    var timespan = dateTimeOffset - status.CreatedAt;
-                    if (timespan > TimeSpan.FromDays(7))
-                    {
-                        broken = true;
-                        break;
-                    }
-                    list.Add(status);
-                }
-
-                var lastElem = statuses[statuses.Count - 1];
-                max_id = lastElem.Id - 1;
-            }
-            while (!broken);
-            
+            var list = await FetchLastTweetList(tokens, user.Id.Value, dateTimeOffset, TimeSpan.FromDays(7), cancellationToken);
+            if (list == null || list.Count == 0) return;
             if (cancellationToken.IsCancellationRequested) return;
             
             // 같은 수가 여러개 있을수도 있는데... 근데 인용은 하나만 되니까 그냥 가자.
