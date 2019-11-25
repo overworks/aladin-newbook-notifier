@@ -61,7 +61,7 @@ namespace Mh.Functions.AladinNewBookNotifier
 
         [FunctionName("TimerTrigger")]
         public static async Task Run(
-            [TimerTrigger("0 0 0,3,9,13 * * *")] TimerInfo myTimer,
+            [TimerTrigger("0 0 9,12,18,22 * * *")] TimerInfo myTimer,
             [Table("BookEntity")] CloudTable table,
             [Queue("aladin-newbooks")] CloudQueue queue,
             ILogger log,
