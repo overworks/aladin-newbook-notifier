@@ -69,9 +69,9 @@ namespace Mh.Functions.AladinNewBookNotifier
         {
             log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
 
-            Task comicsTask = CheckNewProduct(Aladin.Const.CategoryID_Comics, table, queue, log, token);
-            Task lnovelTask = CheckNewProduct(Aladin.Const.CategoryID_LNovel, table, queue, log, token);
-            Task itbookTask = CheckNewProduct(Aladin.Const.CategoryID_ITBook, table, queue, log, token);
+            Task comicsTask = CheckNewProduct(Aladin.Const.CategoryID.Comics, table, queue, log, token);
+            Task lnovelTask = CheckNewProduct(Aladin.Const.CategoryID.LNovel, table, queue, log, token);
+            Task itbookTask = CheckNewProduct(Aladin.Const.CategoryID.ITBook, table, queue, log, token);
 
             await Task.WhenAll(comicsTask, lnovelTask, itbookTask);
         }

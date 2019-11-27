@@ -110,7 +110,7 @@ namespace Mh.Functions.AladinNewBookNotifier
                     var tweetTask = tokens != null ? TweetItemsAsync(tokens, itemList, cancellationToken) : Task.CompletedTask;
 
                     // 지금은 만화쪽만 처리한다.
-                    var lineTask = queueItem.CategoryId == Aladin.Const.CategoryID_Comics ? SendLineMessage(lineAccountTable, itemList, log) : Task.CompletedTask;
+                    var lineTask = queueItem.CategoryId == Aladin.Const.CategoryID.Comics ? SendLineMessage(lineAccountTable, itemList, log) : Task.CompletedTask;
 
                     // 배치처리는 파티션 키가 동일해야하고, 100개까지 가능하다는데...
                     // 일단 파티션 키는 전부 동일하게 넘어올테고, 100개 넘을일은 없겠...지?

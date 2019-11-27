@@ -57,7 +57,6 @@ namespace Mh.Functions.AladinNewBookNotifier
             var user = await tokens.Account.VerifyCredentialsAsync(false, true, false, cancellationToken: cancellationToken);
             if (cancellationToken.IsCancellationRequested) return;
 
-            // 1주일 전의 것까지 가져오기.
             var list = await FetchLastTweetList(tokens, user.Id.Value, dateTimeOffset, TimeSpan.FromDays(7), cancellationToken);
             if (list == null || list.Count == 0) return;
             if (cancellationToken.IsCancellationRequested) return;
@@ -70,8 +69,25 @@ namespace Mh.Functions.AladinNewBookNotifier
                 if (l.FavoriteCount < r.FavoriteCount) return 1;
                 return 0;
             });
-            var mostRetweeted = (list.Count > 0 && list[0].RetweetCount > 0) ? list[0] : null;
-
+            var most = new List<Status>();
+            for (int i = 0; i < 3; ++i)
+            {
+                if (i < list.Count && list[i].RetweetCount > 0)
+                {
+                    most.Add(list[i]);
+                }
+            }
+            long? replyId = null;
+            for (int i = 0; i < most.Count; ++i)
+            {
+                var status = most[i];
+                string text = $"지난 한 주간 가장 많이 리트윗된 도서 {i + 1}위 ({status.RetweetCount}회)";
+                string permalink = $"https://twitter.com/{user.ScreenName}/status/{status.Id.ToString()}";
+                var r = await tokens.Statuses.UpdateAsync(text, replyId, attachment_url: permalink, cancellationToken: cancellationToken);
+                if (cancellationToken.IsCancellationRequested) return;
+                replyId = r.Id;
+            }
+            
             list.Sort((l, r) => {
                 if (l.FavoriteCount > r.FavoriteCount) return -1;
                 if (l.FavoriteCount < r.FavoriteCount) return 1;
@@ -79,24 +95,24 @@ namespace Mh.Functions.AladinNewBookNotifier
                 if (l.RetweetCount < r.RetweetCount) return 1;
                 return 0;
             });
-            var mostFavorated = (list.Count > 0 && list[0].FavoriteCount > 0) ? list[0] : null;
-            
-            StatusResponse response = null;
-            if (mostRetweeted != null)
+            most.Clear();
+            for (int i = 0; i < 3; ++i)
             {
-                string permalink = $"https://twitter.com/{user.ScreenName}/status/{mostRetweeted.Id.ToString()}";
-                response = await tokens.Statuses.UpdateAsync($"지난 한 주간 가장 많이 리트윗된 도서 ({mostRetweeted.RetweetCount}회)", attachment_url: permalink, cancellationToken: cancellationToken);
+                if (i < list.Count && list[i].FavoriteCount > 0)
+                {
+                    most.Add(list[i]);
+                }
             }
-            if (cancellationToken.IsCancellationRequested) return;
-
-            if (mostFavorated != null)
+            replyId = null;
+            for (int i = 0; i < most.Count; ++i)
             {
-                string permalink = $"https://twitter.com/{user.ScreenName}/status/{mostFavorated.Id.ToString()}";
-                long? replyStatusId = null;
-                if (response != null) replyStatusId = response.Id;
-                await tokens.Statuses.UpdateAsync($"지난 한 주간 가장 많이 좋아요 표시된 도서 ({mostRetweeted.FavoriteCount}회)", replyStatusId, attachment_url: permalink, cancellationToken: cancellationToken);
+                var status = most[i];
+                string text = $"지난 한 주간 가장 많이 좋아요 표시된 도서 {i + 1}위 ({status.FavoriteCount}회)";
+                string permalink = $"https://twitter.com/{user.ScreenName}/status/{status.Id.ToString()}";
+                var r = await tokens.Statuses.UpdateAsync(text, replyId, attachment_url: permalink, cancellationToken: cancellationToken);
+                if (cancellationToken.IsCancellationRequested) return;
+                replyId = r.Id;
             }
-            if (cancellationToken.IsCancellationRequested) return;
         }
 
         [FunctionName("WeeklyTimerTrigger")]
@@ -111,11 +127,12 @@ namespace Mh.Functions.AladinNewBookNotifier
 
             log.LogInformation($"C# Weekly timer trigger function executed at: {now.ToString()}");
 
-            var comicsTask = TweetWeeklyReportAsync(now, credentialsTable, Aladin.Const.CategoryID_Comics, cancellationToken);
-            var lnovelTask = TweetWeeklyReportAsync(now, credentialsTable, Aladin.Const.CategoryID_LNovel, cancellationToken);
-            var itbookTask = TweetWeeklyReportAsync(now, credentialsTable, Aladin.Const.CategoryID_ITBook, cancellationToken);
+            var comicsTask = TweetWeeklyReportAsync(now, credentialsTable, Aladin.Const.CategoryID.Comics, cancellationToken);
+            await comicsTask;
+            //var lnovelTask = TweetWeeklyReportAsync(now, credentialsTable, Aladin.Const.CategoryID.LNovel, cancellationToken);
+            //var itbookTask = TweetWeeklyReportAsync(now, credentialsTable, Aladin.Const.CategoryID.ITBook, cancellationToken);
 
-            await Task.WhenAll(comicsTask, lnovelTask, itbookTask);
+            //await Task.WhenAll(comicsTask, lnovelTask, itbookTask);
         }
     }
 }
