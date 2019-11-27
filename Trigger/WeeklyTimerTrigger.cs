@@ -119,7 +119,6 @@ namespace Mh.Functions.AladinNewBookNotifier
         public static async Task Run(
             [TimerTrigger("0 0 0 * * Sun")] TimerInfo myTimer,
             [Table("Credentials", "Twitter")] CloudTable credentialsTable,
-            [Table("LineAccount")] CloudTable lineAccountTable,
             ILogger log,
             CancellationToken cancellationToken)
         {
@@ -128,11 +127,10 @@ namespace Mh.Functions.AladinNewBookNotifier
             log.LogInformation($"C# Weekly timer trigger function executed at: {now.ToString()}");
 
             var comicsTask = TweetWeeklyReportAsync(now, credentialsTable, Aladin.Const.CategoryID.Comics, cancellationToken);
-            await comicsTask;
-            //var lnovelTask = TweetWeeklyReportAsync(now, credentialsTable, Aladin.Const.CategoryID.LNovel, cancellationToken);
-            //var itbookTask = TweetWeeklyReportAsync(now, credentialsTable, Aladin.Const.CategoryID.ITBook, cancellationToken);
+            var lnovelTask = TweetWeeklyReportAsync(now, credentialsTable, Aladin.Const.CategoryID.LNovel, cancellationToken);
+            var itbookTask = TweetWeeklyReportAsync(now, credentialsTable, Aladin.Const.CategoryID.ITBook, cancellationToken);
 
-            //await Task.WhenAll(comicsTask, lnovelTask, itbookTask);
+            await Task.WhenAll(comicsTask, lnovelTask, itbookTask);
         }
     }
 }
