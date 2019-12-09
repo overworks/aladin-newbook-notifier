@@ -46,6 +46,28 @@ namespace Mh.Functions.AladinNewBookNotifier
             return list;
         }
 
+        private static int RetweetComparision(Status l, Status r)
+        {
+            if (l.QuotedStatus == null && r.QuotedStatus != null) return -1;
+            if (l.QuotedStatus != null && r.QuotedStatus == null) return 1;
+            if (l.RetweetCount > r.RetweetCount) return -1;
+            if (l.RetweetCount < r.RetweetCount) return 1;
+            if (l.FavoriteCount > r.FavoriteCount) return -1;
+            if (l.FavoriteCount < r.FavoriteCount) return 1;
+            return 0;
+        }
+
+        private static int FavoriteComparision(Status l, Status r)
+        {
+            if (l.QuotedStatus == null && r.QuotedStatus != null) return -1;
+            if (l.QuotedStatus != null && r.QuotedStatus == null) return 1;
+            if (l.FavoriteCount > r.FavoriteCount) return -1;
+            if (l.FavoriteCount < r.FavoriteCount) return 1;
+            if (l.RetweetCount > r.RetweetCount) return -1;
+            if (l.RetweetCount < r.RetweetCount) return 1;
+            return 0;
+        }
+
         private static async Task TweetWeeklyReportAsync(
             DateTimeOffset dateTimeOffset,
             CloudTable credentialsTable,
@@ -62,17 +84,11 @@ namespace Mh.Functions.AladinNewBookNotifier
             if (cancellationToken.IsCancellationRequested) return;
             
             // 같은 수가 여러개 있을수도 있는데... 근데 인용은 하나만 되니까 그냥 가자.
-            list.Sort((l, r) => {
-                if (l.RetweetCount > r.RetweetCount) return -1;
-                if (l.RetweetCount < r.RetweetCount) return 1;
-                if (l.FavoriteCount > r.FavoriteCount) return -1;
-                if (l.FavoriteCount < r.FavoriteCount) return 1;
-                return 0;
-            });
+            list.Sort(RetweetComparision);
             var most = new List<Status>();
             for (int i = 0; i < 3; ++i)
             {
-                if (i < list.Count && list[i].RetweetCount > 0)
+                if (i < list.Count && list[i].RetweetCount > 0 && list[i].QuotedStatus == null)
                 {
                     most.Add(list[i]);
                 }
@@ -88,17 +104,11 @@ namespace Mh.Functions.AladinNewBookNotifier
                 replyId = r.Id;
             }
             
-            list.Sort((l, r) => {
-                if (l.FavoriteCount > r.FavoriteCount) return -1;
-                if (l.FavoriteCount < r.FavoriteCount) return 1;
-                if (l.RetweetCount > r.RetweetCount) return -1;
-                if (l.RetweetCount < r.RetweetCount) return 1;
-                return 0;
-            });
+            list.Sort(FavoriteComparision);
             most.Clear();
             for (int i = 0; i < 3; ++i)
             {
-                if (i < list.Count && list[i].FavoriteCount > 0)
+                if (i < list.Count && list[i].FavoriteCount > 0 && list[i].QuotedStatus == null)
                 {
                     most.Add(list[i]);
                 }
