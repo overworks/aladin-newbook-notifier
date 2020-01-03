@@ -1,10 +1,8 @@
 using System;
-using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Extensions.Logging;
 using Microsoft.WindowsAzure.Storage.Queue;
 using Microsoft.WindowsAzure.Storage.Table;
@@ -36,11 +34,17 @@ namespace Mh.Functions.AladinNewBookNotifier
                         break;
                     }
 
+                    // 가끔씩 잘못된 것들이 끼어들어오기도 하더라...
+                    if (item.itemId == 0 || string.IsNullOrEmpty(item.title) || string.IsNullOrEmpty(item.isbn))
+                    {
+                        continue;
+                    }
+
                     TableOperation retrieveOperation = TableOperation.Retrieve<BookEntity>(categoryId, item.itemId.ToString());
                     TableResult retrievedResult = await table.ExecuteAsync(retrieveOperation);
                     if (retrievedResult.Result == null)
                     {
-                        log.LogInformation("enqueue " + item.title);
+                        log.LogInformation($"enqueue {item.title} to Category {categoryId}");
 
                         queueItem.ItemList.Add(item.itemId);
                     }
