@@ -1,6 +1,6 @@
 using Microsoft.WindowsAzure.Storage.Table;
 
-namespace Mh.Functions.AladinNewBookNotifier
+namespace Mh.Functions.AladinNewBookNotifier.Models
 {
     public class BookEntity : TableEntity
     {

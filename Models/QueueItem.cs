@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 
-namespace Mh.Functions.AladinNewBookNotifier
+namespace Mh.Functions.AladinNewBookNotifier.Models
 {
     public class QueueItem
     {
         public string CategoryId { get; set; }
-        public IList<int> ItemList { get; set; }
+        public List<int> ItemList { get; set; }
 
         public QueueItem(string categoryId)
         {

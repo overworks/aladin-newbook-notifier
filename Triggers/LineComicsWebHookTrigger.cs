@@ -10,7 +10,7 @@ using Microsoft.WindowsAzure.Storage.Table;
 using Line.Messaging;
 using Line.Messaging.Webhooks;
 
-namespace Mh.Functions.AladinNewBookNotifier
+namespace Mh.Functions.AladinNewBookNotifier.Triggers
 {
     /// <summary>라인의 신간 알림 채널의 웹훅 트리거</summary>
     public static class LineComicsWebHookTrigger

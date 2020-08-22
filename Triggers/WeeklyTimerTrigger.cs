@@ -7,7 +7,7 @@ using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
 using Microsoft.WindowsAzure.Storage.Table;
 
-namespace Mh.Functions.AladinNewBookNotifier
+namespace Mh.Functions.AladinNewBookNotifier.Triggers
 {
     public static class WeeklyTimerTrigger
     {
@@ -136,11 +136,14 @@ namespace Mh.Functions.AladinNewBookNotifier
 
             log.LogInformation($"C# Weekly timer trigger function executed at: {now.ToString()}");
 
-            var comicsTask = TweetWeeklyReportAsync(now, credentialsTable, Aladin.Const.CategoryID.Comics, cancellationToken);
-            var lnovelTask = TweetWeeklyReportAsync(now, credentialsTable, Aladin.Const.CategoryID.LNovel, cancellationToken);
-            var itbookTask = TweetWeeklyReportAsync(now, credentialsTable, Aladin.Const.CategoryID.ITBook, cancellationToken);
+            var tasks = new Task[]
+            {
+                TweetWeeklyReportAsync(now, credentialsTable, Aladin.Const.CategoryID.Comics, cancellationToken),
+                TweetWeeklyReportAsync(now, credentialsTable, Aladin.Const.CategoryID.LNovel, cancellationToken),
+                TweetWeeklyReportAsync(now, credentialsTable, Aladin.Const.CategoryID.ITBook, cancellationToken)
+            };
 
-            await Task.WhenAll(comicsTask, lnovelTask, itbookTask);
+            await Task.WhenAll(tasks);
         }
     }
 }

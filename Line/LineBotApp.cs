@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.WindowsAzure.Storage.Table;
 using Line.Messaging;
 using Line.Messaging.Webhooks;
+using Mh.Functions.AladinNewBookNotifier.Models;
+using Mh.Functions.AladinNewBookNotifier.Aladin.Models;
 
 namespace Mh.Functions.AladinNewBookNotifier.Line
 {
@@ -22,7 +24,7 @@ namespace Mh.Functions.AladinNewBookNotifier.Line
             this.log = log;
         }
 
-        public async Task MulticastItemMessages(List<Aladin.ItemLookUpResult.Item> itemList)
+        public async Task MulticastItemMessages(List<ItemLookUpResult.Item> itemList)
         {
             
             int count = 0;

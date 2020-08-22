@@ -1,15 +1,15 @@
-using System;
 using Line.Messaging;
+using Mh.Functions.AladinNewBookNotifier.Aladin.Models;
 
 namespace Mh.Functions.AladinNewBookNotifier.Line
 {
     /// <summary>라인 관련 유틸 모음</summary>
     public static class Utils
     {
-        public static BubbleContainer ToBubbleContainer(this Aladin.ItemLookUpResult.Item item)
+        public static BubbleContainer ToBubbleContainer(this ItemLookUpResult.Item item)
         {
             string linkUrl = Aladin.Utils.UnescapeUrl(item.link);
-            string coverUrl = Aladin.Utils.GetHQCoverUrl(item);
+            string coverUrl = item.hqCover;
 
             UriTemplateAction linkAction = new UriTemplateAction("상품 페이지로 이동", linkUrl);
 

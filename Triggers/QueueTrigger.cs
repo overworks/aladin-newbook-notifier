@@ -1,38 +1,72 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using CoreTweet;
 using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Extensions.Logging;
 using Microsoft.WindowsAzure.Storage.Queue;
 using Microsoft.WindowsAzure.Storage.Table;
 using Newtonsoft.Json;
 using Line.Messaging;
+using Mh.Functions.AladinNewBookNotifier.Aladin.Models;
+using Mh.Functions.AladinNewBookNotifier.Models;
 
-namespace Mh.Functions.AladinNewBookNotifier
+namespace Mh.Functions.AladinNewBookNotifier.Triggers
 {
     public static class QueueTrigger
     {
-        private static HttpClient httpClient = new HttpClient();
+        private static HttpClient httpClient;
         private static LineMessagingClient lineMessagingClient;
 
         static QueueTrigger()
         {
+            httpClient = new HttpClient();
+            httpClient.BaseAddress = new Uri(Aladin.Const.Domain);
+
             string accessToken = Environment.GetEnvironmentVariable("LINE_COMICS_ACCESS_TOKEN");
             lineMessagingClient = new LineMessagingClient(accessToken);
             var sp = ServicePointManager.FindServicePoint(new Uri("https://api.line.me"));
             sp.ConnectionLeaseTimeout = 60 * 1000;
         }
 
-        /// <summary>상품정보 트윗(비동기 처리)</summary>
-        private static async Task TweetItemAsync(Tokens tokens, Aladin.ItemLookUpResult.Item item, CancellationToken cancellationToken)
+        /// <summary>알라딘 상품 조회 API를 사용하여 상품 정보를 가져옴</summary>
+        /// <param name="itemId">상품 ID</param>
+        public static async Task<ItemLookUpResult> LookUpItemAsync(int itemId)
         {
-            var stream = await httpClient.GetStreamAsync(Aladin.Utils.GetHQCoverUrl(item));
+            string ttbKey = Environment.GetEnvironmentVariable("ALADIN_TTB_KEY");
+            string partnerId = Environment.GetEnvironmentVariable("ALADIN_PARTNER_ID");
+
+            Dictionary<string, string> queryDict = new Dictionary<string, string>();
+            queryDict.Add("ttbkey", ttbKey);
+            queryDict.Add("partner", partnerId);
+            queryDict.Add("version", "20131101");
+            queryDict.Add("cover", "big");
+            queryDict.Add("output", "js");
+            queryDict.Add("itemidtype", "itemid");
+            queryDict.Add("itemid", itemId.ToString());
+            
+            StringBuilder sb = new StringBuilder(256);
+            sb.Append(Aladin.Const.Endpoint.LookUp + "?");
+            foreach (var kvp in queryDict)
+            {
+                sb.Append(kvp.Key).Append("=").Append(kvp.Value).Append("&");
+            }
+
+            Uri uri = new Uri(new Uri(Aladin.Const.Domain), sb.ToString());
+            string response = await httpClient.GetStringAsync(uri);
+            var result = JsonConvert.DeserializeObject<ItemLookUpResult>(response);
+
+            return result;
+        }
+
+        /// <summary>상품정보 트윗(비동기 처리)</summary>
+        private static async Task TweetItemAsync(Tokens tokens, ItemLookUpResult.Item item, CancellationToken cancellationToken)
+        {
+            var stream = await httpClient.GetStreamAsync(item.hqCover);
             if (cancellationToken.IsCancellationRequested)
                 return;
 
@@ -41,12 +75,12 @@ namespace Mh.Functions.AladinNewBookNotifier
                 return;
 
             long[] mediaIds = { mediaUploadResult.MediaId };
-            string status = Aladin.Utils.ToTwitterStatus(item);
+            string status = Twitter.Utils.ToTwitterStatus(item);
             var statusResponse = await tokens.Statuses.UpdateAsync(status, media_ids: mediaIds, cancellationToken: cancellationToken);
         }
 
         /// <summary>상품정보 트윗 일괄처리</summary>
-        private static async Task TweetItemsAsync(Tokens tokens, List<Aladin.ItemLookUpResult.Item> itemList, CancellationToken cancellationToken)
+        private static async Task TweetItemsAsync(Tokens tokens, List<ItemLookUpResult.Item> itemList, CancellationToken cancellationToken)
         {
             // 호출하는 쪽에서 하고 있어서 null 체크 빼버림.
             var taskList = new List<Task>(itemList.Count);
@@ -63,7 +97,7 @@ namespace Mh.Functions.AladinNewBookNotifier
             await Task.WhenAll(taskList);
         }
 
-        private static async Task SendLineMessage(CloudTable accountTable, List<Aladin.ItemLookUpResult.Item> itemList, ILogger log)
+        private static async Task SendLineMessage(CloudTable accountTable, List<ItemLookUpResult.Item> itemList, ILogger log)
         {
             string channelId = Environment.GetEnvironmentVariable("LINE_COMICS_CHANNEL_ID");
             var lineBot = new Line.LineBotApp(channelId, lineMessagingClient, accountTable, log);
@@ -84,12 +118,12 @@ namespace Mh.Functions.AladinNewBookNotifier
                 var queueItem = JsonConvert.DeserializeObject<QueueItem>(message.AsString);
                 string categoryId = queueItem.CategoryId;
 
-                var itemList = new List<Aladin.ItemLookUpResult.Item>();
+                var itemList = new List<ItemLookUpResult.Item>();
                 var batchOperation = new TableBatchOperation();
 
                 foreach (int itemId in queueItem.ItemList)
                 {
-                    var lookUpResult = await Aladin.Utils.LookUpItemAsync(httpClient, itemId);
+                    var lookUpResult = await LookUpItemAsync(itemId);
                     foreach (var item in lookUpResult.item)
                     {
                         cancellationToken.ThrowIfCancellationRequested();

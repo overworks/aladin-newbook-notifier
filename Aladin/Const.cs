@@ -4,8 +4,11 @@ namespace Mh.Functions.AladinNewBookNotifier.Aladin
     {
         public const string Domain = "http://www.aladin.co.kr/";
 
-        public const string EndPoint_List = "ttb/api/itemlist.aspx";
-        public const string EndPoint_LookUp = "ttb/api/itemlookup.aspx";
+        public class Endpoint
+        {
+            public const string List = "ttb/api/itemlist.aspx";
+            public const string LookUp = "ttb/api/itemlookup.aspx";
+        }
 
         public class CategoryID
         {
