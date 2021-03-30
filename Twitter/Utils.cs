@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using CoreTweet;
-using Microsoft.WindowsAzure.Storage.Table;
+using Microsoft.Azure.Cosmos.Table;
 using Mh.Functions.AladinNewBookNotifier.Models;
 using Mh.Functions.AladinNewBookNotifier.Aladin.Models;
 
