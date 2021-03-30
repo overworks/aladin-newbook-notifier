@@ -24,7 +24,7 @@ namespace Mh.Functions.AladinNewBookNotifier.Line
             this.log = log;
         }
 
-        public async Task MulticastItemMessages(List<ItemLookUpResult.Item> itemList)
+        public async Task MulticastItemMessagesAsync(IList<ItemLookUpResult.Item> itemList)
         {
             
             int count = 0;
@@ -67,12 +67,12 @@ namespace Mh.Functions.AladinNewBookNotifier.Line
 
                 if (messageList.Count > 0)
                 {
-                    await MulticastMessages(messageList);
+                    await MulticastMessagesAsync(messageList);
                 }
             }
         }
 
-        private async Task MulticastMessages(IList<ISendMessage> messages)
+        private async Task MulticastMessagesAsync(IList<ISendMessage> messages)
         {
             TableContinuationToken continuationToken = null;
             do

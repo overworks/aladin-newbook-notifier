@@ -97,11 +97,11 @@ namespace Mh.Functions.AladinNewBookNotifier.Triggers
             await Task.WhenAll(taskList);
         }
 
-        private static async Task SendLineMessage(CloudTable accountTable, List<ItemLookUpResult.Item> itemList, ILogger log)
+        private static async Task SendLineMessageAsync(CloudTable accountTable, IList<ItemLookUpResult.Item> itemList, ILogger log)
         {
             string channelId = Environment.GetEnvironmentVariable("LINE_COMICS_CHANNEL_ID");
             var lineBot = new Line.LineBotApp(channelId, lineMessagingClient, accountTable, log);
-            await lineBot.MulticastItemMessages(itemList);
+            await lineBot.MulticastItemMessagesAsync(itemList);
         }
 
         [FunctionName("QueueTrigger")]
@@ -143,25 +143,31 @@ namespace Mh.Functions.AladinNewBookNotifier.Triggers
                     var tokens = await Twitter.Utils.CreateTokenAsync(credentialsTable, queueItem.CategoryId);
                     var tweetTask = tokens != null ? TweetItemsAsync(tokens, itemList, cancellationToken) : Task.CompletedTask;
 
-                    // 지금은 만화쪽만 처리한다.
-                    var lineTask = queueItem.CategoryId == Aladin.Const.CategoryID.Comics ? SendLineMessage(lineAccountTable, itemList, log) : Task.CompletedTask;
-
                     // 배치처리는 파티션 키가 동일해야하고, 100개까지 가능하다는데...
                     // 일단 파티션 키는 전부 동일하게 넘어올테고, 100개 넘을일은 없겠...지?
                     var tableTask = bookTable.ExecuteBatchAsync(batchOperation);
 
-                    await Task.WhenAll(tweetTask, lineTask, tableTask);
+                    // 트위터와 테이블 쓰기 작업을 먼저한다.
+                    await Task.WhenAll(tweetTask, tableTask);
+
+                    if (queueItem.CategoryId == Aladin.Const.CategoryID.Comics)
+                    {
+                        await SendLineMessageAsync(lineAccountTable, itemList, log);
+                    }
                 }
             }
             catch (Exception e)
             {
-                log.LogError(e.StackTrace);
+                log.LogError(e.Message);
 
-                // 에러 발생시 내 계정으로 예외 정보를 보냄.
-                string adminLineId = Environment.GetEnvironmentVariable("LINE_ADMIN_USER_ID");
-                var error = new { Type = e.GetType().ToString(), Message = e.Message, StackTrace = e.StackTrace };
-                string json = JsonConvert.SerializeObject(error, Formatting.Indented);
-                await lineMessagingClient.PushMessageAsync(adminLineId, json);
+                if (e is LineResponseException)
+                {
+                    // 에러 발생시 내 계정으로 예외 정보를 보냄.
+                    string adminLineId = Environment.GetEnvironmentVariable("LINE_ADMIN_USER_ID");
+                    var error = new { Type = e.GetType().ToString(), Message = e.Message, StackTrace = e.StackTrace };
+                    string json = JsonConvert.SerializeObject(error, Formatting.Indented);
+                    await lineMessagingClient.PushMessageAsync(adminLineId, json);
+                }
             }
         }
     }
