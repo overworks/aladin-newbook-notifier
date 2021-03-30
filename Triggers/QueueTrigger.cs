@@ -150,6 +150,7 @@ namespace Mh.Functions.AladinNewBookNotifier.Triggers
                     // 트위터와 테이블 쓰기 작업을 먼저한다.
                     await Task.WhenAll(tweetTask, tableTask);
 
+                    // 라인 메시지를 보낼때 리미트가 걸려 예외가 발생하므로 라인만 따로 한다.
                     if (queueItem.CategoryId == Aladin.Const.CategoryID.Comics)
                     {
                         await SendLineMessageAsync(lineAccountTable, itemList, log);
@@ -160,13 +161,21 @@ namespace Mh.Functions.AladinNewBookNotifier.Triggers
             {
                 log.LogError(e.Message);
 
-                if (e is LineResponseException)
+                if (e is LineResponseException lineEx)
                 {
-                    // 에러 발생시 내 계정으로 예외 정보를 보냄.
-                    string adminLineId = Environment.GetEnvironmentVariable("LINE_ADMIN_USER_ID");
-                    var error = new { Type = e.GetType().ToString(), Message = e.Message, StackTrace = e.StackTrace };
-                    string json = JsonConvert.SerializeObject(error, Formatting.Indented);
-                    await lineMessagingClient.PushMessageAsync(adminLineId, json);
+                    if (lineEx.StatusCode != HttpStatusCode.TooManyRequests)
+                    {
+                        // 에러 발생시 내 계정으로 예외 정보를 보냄.
+                        string adminLineId = Environment.GetEnvironmentVariable("LINE_ADMIN_USER_ID");
+                        var error = new
+                        {
+                            Type = e.GetType().ToString(),
+                            Message = e.Message,
+                            StackTrace = e.StackTrace
+                        };
+                        string json = JsonConvert.SerializeObject(error, Formatting.Indented);
+                        await lineMessagingClient.PushMessageAsync(adminLineId, json);
+                    }
                 }
             }
         }
