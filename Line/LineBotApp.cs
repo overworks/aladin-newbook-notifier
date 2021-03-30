@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.Azure.Cosmos.Table;
 using Microsoft.Extensions.Logging;
-using Microsoft.WindowsAzure.Storage.Table;
 using Line.Messaging;
 using Line.Messaging.Webhooks;
 using Mh.Functions.AladinNewBookNotifier.Models;

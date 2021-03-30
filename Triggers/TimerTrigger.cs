@@ -1,15 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Azure.Cosmos.Table;
+using Microsoft.Azure.Storage.Queue;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
-using Microsoft.WindowsAzure.Storage.Queue;
-using Microsoft.WindowsAzure.Storage.Table;
 using Newtonsoft.Json;
 using Mh.Functions.AladinNewBookNotifier.Models;
-using System.Text;
-using System.Collections.Generic;
 using Mh.Functions.AladinNewBookNotifier.Aladin.Models;
 
 namespace Mh.Functions.AladinNewBookNotifier.Triggers
